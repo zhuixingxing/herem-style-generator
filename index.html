@@ -381,21 +381,73 @@ function resizeForApi(dataUrl) {
   });
 }
 
-// Upscale result back to original resolution
+// Stepped upscale: max 1.5x per step → avoids single-jump blur
 function upscaleToOriginal(resultDataUrl, targetW, targetH) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = targetW; c.height = targetH;
-      const ctx = c.getContext('2d');
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, 0, 0, targetW, targetH);
-      resolve(c.toDataURL('image/jpeg', 0.95));
+      // Seed canvas from API output
+      let canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+
+      let cw = img.width, ch = img.height;
+
+      // Step up by at most 1.5× each pass until target size
+      while (cw < targetW || ch < targetH) {
+        const nw = Math.min(Math.round(cw * 1.5), targetW);
+        const nh = Math.min(Math.round(ch * 1.5), targetH);
+        const nc = document.createElement('canvas');
+        nc.width = nw; nc.height = nh;
+        const ctx = nc.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(canvas, 0, 0, nw, nh);
+        canvas = nc; cw = nw; ch = nh;
+      }
+
+      // Light sharpening pass (skipped for very large images >3MP to stay fast)
+      if (cw * ch <= 3000000) sharpenCanvas(canvas, 0.25);
+
+      resolve(canvas.toDataURL('image/jpeg', 0.95));
     };
     img.src = resultDataUrl;
   });
+}
+
+// 4-neighbour unsharp mask — enhances edges without amplifying noise
+function sharpenCanvas(canvas, strength) {
+  const ctx = canvas.getContext('2d');
+  const { width: w, height: h } = canvas;
+  const src = ctx.getImageData(0, 0, w, h);
+  const dst = new ImageData(w, h);
+  const s = src.data, d = dst.data;
+  const k = strength;
+
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = (y * w + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        const neighbours = s[i - 4 + c] + s[i + 4 + c] + s[i - w*4 + c] + s[i + w*4 + c];
+        d[i + c] = Math.max(0, Math.min(255, s[i + c] * (1 + 4*k) - neighbours * k));
+      }
+      d[i + 3] = s[i + 3];
+    }
+  }
+
+  // Copy border pixels unchanged
+  for (let x = 0; x < w; x++) {
+    for (const base of [x * 4, ((h - 1) * w + x) * 4]) {
+      d[base] = s[base]; d[base+1] = s[base+1]; d[base+2] = s[base+2]; d[base+3] = s[base+3];
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    for (const base of [y * w * 4, (y * w + w - 1) * 4]) {
+      d[base] = s[base]; d[base+1] = s[base+1]; d[base+2] = s[base+2]; d[base+3] = s[base+3];
+    }
+  }
+
+  ctx.putImageData(dst, 0, 0);
 }
 
 // ── Generate ──
