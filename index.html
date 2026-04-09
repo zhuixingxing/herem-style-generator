@@ -135,9 +135,10 @@ header p {
 .strength-row input[type=range] { flex: 1; accent-color: var(--ochre); }
 .strength-row span { font-size: 0.82rem; color: var(--ochre); font-weight: 600; min-width: 36px; text-align: right; }
 
-/* Generate button */
+/* Generate / Cancel buttons */
+.btn-row { display: flex; gap: 10px; margin-top: 14px; }
 .btn-generate {
-  display: block; width: 100%;
+  flex: 1;
   background: var(--blue-deep);
   color: var(--parchment);
   font-family: 'Playfair Display', serif;
@@ -146,11 +147,24 @@ header p {
   border: none; border-radius: 8px;
   padding: 13px 0;
   cursor: pointer;
-  margin-top: 14px;
   transition: background 0.2s;
 }
 .btn-generate:hover { background: var(--blue-mid); }
 .btn-generate:disabled { background: #8899aa; cursor: not-allowed; }
+.btn-cancel {
+  display: none;
+  background: transparent;
+  color: var(--terracotta);
+  font-family: 'Lora', serif;
+  font-size: 0.9rem;
+  border: 2px solid var(--terracotta);
+  border-radius: 8px;
+  padding: 13px 20px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.btn-cancel:hover { background: var(--terracotta); color: #fff; }
 
 /* Status */
 #status {
@@ -268,8 +282,11 @@ header p {
     <span id="strengthVal">50%</span>
   </div>
 
-  <!-- Generate -->
-  <button class="btn-generate" id="generateBtn" onclick="generate()">生成插画</button>
+  <!-- Generate / Cancel -->
+  <div class="btn-row">
+    <button class="btn-generate" id="generateBtn" onclick="generate()">生成插画</button>
+    <button class="btn-cancel" id="cancelBtn" onclick="cancelGeneration()">取消</button>
+  </div>
   <div id="status"></div>
 
   <!-- Result -->
@@ -346,6 +363,8 @@ let selectedStyle = STYLES[0];
 let currentPhotoDataUrl = null;
 let currentResultDataUrl = null;
 let origW = 0, origH = 0;
+let cancelRequested = false;
+let currentJobId = null;
 
 // Render style cards
 const grid = document.getElementById('stylesGrid');
@@ -423,20 +442,57 @@ function resizeForApi(dataUrl) {
   });
 }
 
+// Step-up canvas scaling: scales in increments for sharper results
+function stepCanvas(img, targetW, targetH) {
+  let curW = img.naturalWidth || img.width;
+  let curH = img.naturalHeight || img.height;
+  let canvas = document.createElement('canvas');
+  canvas.width = curW; canvas.height = curH;
+  canvas.getContext('2d').drawImage(img, 0, 0);
+  // Scale up in 1.5x steps until within 2x of target
+  while (curW < targetW / 2 || curH < targetH / 2) {
+    const nextW = Math.min(Math.round(curW * 1.5), targetW);
+    const nextH = Math.min(Math.round(curH * 1.5), targetH);
+    const next = document.createElement('canvas');
+    next.width = nextW; next.height = nextH;
+    const ctx = next.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, 0, 0, nextW, nextH);
+    canvas = next; curW = nextW; curH = nextH;
+  }
+  if (curW !== targetW || curH !== targetH) {
+    const final = document.createElement('canvas');
+    final.width = targetW; final.height = targetH;
+    const ctx = final.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, 0, 0, targetW, targetH);
+    return final;
+  }
+  return canvas;
+}
+
 function upscaleToOriginal(resultDataUrl, targetW, targetH) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = targetW; c.height = targetH;
-      const ctx = c.getContext('2d');
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, 0, 0, targetW, targetH);
-      resolve(c.toDataURL('image/jpeg', 0.95));
+      const canvas = stepCanvas(img, targetW, targetH);
+      resolve(canvas.toDataURL('image/jpeg', 0.95));
     };
     img.src = resultDataUrl;
   });
+}
+
+function cancelGeneration() {
+  cancelRequested = true;
+  if (currentJobId) {
+    fetch(`https://stablehorde.net/api/v2/generate/status/${currentJobId}`, { method: 'DELETE' }).catch(() => {});
+    currentJobId = null;
+  }
+  setStatus('已取消生成', 'error');
+  document.getElementById('generateBtn').disabled = false;
+  document.getElementById('cancelBtn').style.display = 'none';
 }
 
 function setStatus(msg, type) {
@@ -448,13 +504,22 @@ function setStatus(msg, type) {
 async function generate() {
   if (!currentPhotoDataUrl) { setStatus('请先上传照片', 'error'); return; }
   const btn = document.getElementById('generateBtn');
+  const cancelBtn = document.getElementById('cancelBtn');
+  cancelRequested = false;
+  currentJobId = null;
   btn.disabled = true;
+  cancelBtn.style.display = 'block';
   document.getElementById('resultSection').style.display = 'none';
   setStatus('正在准备图片...', 'info');
 
   try {
     const { base64, width, height } = await resizeForApi(currentPhotoDataUrl);
+    if (cancelRequested) throw new Error('已取消生成');
     const strength = parseInt(slider.value) / 100;
+
+    // Use Real-ESRGAN AI upscaling when original is larger than generated size
+    const needsUpscale = origW > width || origH > height;
+    const postProcessing = needsUpscale ? ['RealESRGAN_x4plus'] : [];
 
     setStatus('正在提交到 Stable Horde...', 'info');
     const resp = await fetch('https://stablehorde.net/api/v2/generate/async', {
@@ -468,6 +533,7 @@ async function generate() {
           cfg_scale: 7,
           denoising_strength: strength,
           sampler_name: 'k_euler_a',
+          post_processing: postProcessing,
           n: 1
         },
         source_image: base64,
@@ -479,16 +545,20 @@ async function generate() {
     });
     if (!resp.ok) { const t = await resp.text(); throw new Error('提交失败: ' + t); }
     const { id } = await resp.json();
+    currentJobId = id;
 
     // Poll
     let attempts = 0;
     while (attempts < 90) {
       await new Promise(r => setTimeout(r, 4000));
+      if (cancelRequested) throw new Error('已取消生成');
       attempts++;
       const chk = await fetch(`https://stablehorde.net/api/v2/generate/check/${id}`);
       const chkData = await chk.json();
+      if (cancelRequested) throw new Error('已取消生成');
       if (chkData.faulted) throw new Error('生成失败，请重试');
-      setStatus(`生成中... ${chkData.wait_time ? '预计等待 ' + chkData.wait_time + 's' : '处理中'}`, 'info');
+      const waitMsg = chkData.wait_time ? `预计等待 ${chkData.wait_time}s` : '处理中';
+      setStatus(`生成中... ${waitMsg}${needsUpscale ? ' (含 AI 超分)' : ''}`, 'info');
       if (chkData.done) {
         const genResp = await fetch(`https://stablehorde.net/api/v2/generate/status/${id}`);
         const genData = await genResp.json();
@@ -496,16 +566,20 @@ async function generate() {
         if (!gen) throw new Error('无法获取生成结果');
 
         const rawDataUrl = gen.img.startsWith('http') ? gen.img : 'data:image/jpeg;base64,' + gen.img;
-        setStatus('正在还原分辨率...', 'info');
-        const finalDataUrl = (origW > 0 && origH > 0)
-          ? await upscaleToOriginal(rawDataUrl, origW, origH)
-          : rawDataUrl;
+
+        let finalDataUrl = rawDataUrl;
+        if (origW > 0 && origH > 0) {
+          setStatus('正在精确对齐分辨率...', 'info');
+          finalDataUrl = await upscaleToOriginal(rawDataUrl, origW, origH);
+        }
 
         currentResultDataUrl = finalDataUrl;
+        currentJobId = null;
         document.getElementById('resultImg').src = finalDataUrl;
         document.getElementById('resultTitle').textContent = `${selectedStyle.name} 风格 · ${origW}×${origH}`;
         document.getElementById('resultSection').style.display = 'block';
-        setStatus(`已还原至原始分辨率 ${origW}×${origH}`, 'success');
+        const upscaleNote = needsUpscale ? ' (Real-ESRGAN 超分)' : '';
+        setStatus(`已完成 · ${origW}×${origH}${upscaleNote}`, 'success');
 
         saveHistory(finalDataUrl, selectedStyle.name, parseInt(slider.value), origW, origH);
         break;
@@ -513,9 +587,10 @@ async function generate() {
     }
     if (attempts >= 90) throw new Error('等待超时，请重试');
   } catch (e) {
-    setStatus(e.message || '生成失败', 'error');
+    if (!cancelRequested) setStatus(e.message || '生成失败', 'error');
   } finally {
     btn.disabled = false;
+    cancelBtn.style.display = 'none';
   }
 }
 
