@@ -381,73 +381,21 @@ function resizeForApi(dataUrl) {
   });
 }
 
-// Stepped upscale: max 1.5x per step → avoids single-jump blur
-function upscaleToOriginal(resultDataUrl, targetW, targetH) {
+// Compress image to a thumbnail for localStorage (max 300px, JPEG 0.7)
+function makeThumbnail(dataUrl, maxPx) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      // Seed canvas from API output
-      let canvas = document.createElement('canvas');
-      canvas.width = img.width; canvas.height = img.height;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-
-      let cw = img.width, ch = img.height;
-
-      // Step up by at most 1.5× each pass until target size
-      while (cw < targetW || ch < targetH) {
-        const nw = Math.min(Math.round(cw * 1.5), targetW);
-        const nh = Math.min(Math.round(ch * 1.5), targetH);
-        const nc = document.createElement('canvas');
-        nc.width = nw; nc.height = nh;
-        const ctx = nc.getContext('2d');
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(canvas, 0, 0, nw, nh);
-        canvas = nc; cw = nw; ch = nh;
-      }
-
-      // Light sharpening pass (skipped for very large images >3MP to stay fast)
-      if (cw * ch <= 3000000) sharpenCanvas(canvas, 0.25);
-
-      resolve(canvas.toDataURL('image/jpeg', 0.95));
+      const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1);
+      const w = Math.round(img.width * ratio);
+      const h = Math.round(img.height * ratio);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', 0.7));
     };
-    img.src = resultDataUrl;
+    img.src = dataUrl;
   });
-}
-
-// 4-neighbour unsharp mask — enhances edges without amplifying noise
-function sharpenCanvas(canvas, strength) {
-  const ctx = canvas.getContext('2d');
-  const { width: w, height: h } = canvas;
-  const src = ctx.getImageData(0, 0, w, h);
-  const dst = new ImageData(w, h);
-  const s = src.data, d = dst.data;
-  const k = strength;
-
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const i = (y * w + x) * 4;
-      for (let c = 0; c < 3; c++) {
-        const neighbours = s[i - 4 + c] + s[i + 4 + c] + s[i - w*4 + c] + s[i + w*4 + c];
-        d[i + c] = Math.max(0, Math.min(255, s[i + c] * (1 + 4*k) - neighbours * k));
-      }
-      d[i + 3] = s[i + 3];
-    }
-  }
-
-  // Copy border pixels unchanged
-  for (let x = 0; x < w; x++) {
-    for (const base of [x * 4, ((h - 1) * w + x) * 4]) {
-      d[base] = s[base]; d[base+1] = s[base+1]; d[base+2] = s[base+2]; d[base+3] = s[base+3];
-    }
-  }
-  for (let y = 0; y < h; y++) {
-    for (const base of [y * w * 4, (y * w + w - 1) * 4]) {
-      d[base] = s[base]; d[base+1] = s[base+1]; d[base+2] = s[base+2]; d[base+3] = s[base+3];
-    }
-  }
-
-  ctx.putImageData(dst, 0, 0);
 }
 
 // ── Generate ──
@@ -521,22 +469,17 @@ async function pollStatus(jobId, styleName, strengthPct) {
       const gen = rd.generations && rd.generations[0];
       if (!gen || !gen.img) throw new Error('未获得图片结果');
 
-      const rawDataUrl = gen.img.startsWith('http') ? gen.img : 'data:image/jpeg;base64,' + gen.img;
-
-      setStatus('正在还原分辨率...', 'info');
-      const finalDataUrl = (origW > 0 && origH > 0)
-        ? await upscaleToOriginal(rawDataUrl, origW, origH)
-        : rawDataUrl;
+      const finalDataUrl = gen.img.startsWith('http') ? gen.img : 'data:image/jpeg;base64,' + gen.img;
 
       if (isCancelled) return;
 
       currentJobId = null;
       currentResultB64 = finalDataUrl;
       document.getElementById('resultImg').src = finalDataUrl;
-      document.getElementById('resultLabel').textContent = styleName + ' Style · ' + origW + '×' + origH;
+      document.getElementById('resultLabel').textContent = styleName + ' Style';
       document.getElementById('results').classList.add('show');
-      setStatus('生成完成！已还原至原始分辨率 ' + origW + '×' + origH, 'success');
-      saveHistory(originalDataUrl, currentPhotoKey, finalDataUrl, styleName, strengthPct);
+      setStatus('生成完成！', 'success');
+      await saveHistory(originalDataUrl, currentPhotoKey, finalDataUrl, styleName, strengthPct);
       resetGeneratingState();
     } else {
       if (isCancelled) return;
@@ -603,21 +546,33 @@ function showBtnFeedback(btn, msg, isError) {
 // ── History ──
 function getHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch(e) { return []; } }
 
-function saveHistory(origSrc, photoKey, dataUrl, styleName, strengthPct) {
+async function saveHistory(origSrc, photoKey, dataUrl, styleName, strengthPct) {
+  // Compress both images to small thumbnails before storing — prevents localStorage quota errors
+  const [origThumb, resultThumb] = await Promise.all([
+    makeThumbnail(origSrc, 300),
+    makeThumbnail(dataUrl, 400),
+  ]);
+
   let history = getHistory();
   const idx = history.findIndex(p => p.key === photoKey);
   const label = styleName + ' · ' + strengthPct + '%';
-  const newResult = { img: dataUrl, time: Date.now(), style: styleName, strength: strengthPct, label };
+  const newResult = { img: resultThumb, time: Date.now(), style: styleName, strength: strengthPct, label };
   if (idx !== -1) {
     history[idx].results.unshift(newResult);
     history[idx].results = history[idx].results.slice(0, 3);
     const [entry] = history.splice(idx, 1);
     history.unshift(entry);
   } else {
-    history.unshift({ key: photoKey, orig: origSrc, firstUploaded: Date.now(), results: [newResult] });
+    history.unshift({ key: photoKey, orig: origThumb, firstUploaded: Date.now(), results: [newResult] });
     history = history.slice(0, 3);
   }
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e) {}
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  } catch (e) {
+    // Quota exceeded: drop oldest entry and retry once
+    history = history.slice(0, 1);
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch (_) {}
+  }
   renderHistory();
 }
 
