@@ -365,13 +365,13 @@ function setGenerating(on) {
   document.getElementById('cancelBtn').classList.toggle('visible', on);
 }
 
-// Resize for API (max 768px, multiples of 64)
+// Resize for API (max 576px — Stable Horde anonymous limit is 597×597)
 function resizeForApi(dataUrl) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
       let w = img.width, h = img.height;
-      const max = 768;
+      const max = 576;
       if (w > max || h > max) { const r = Math.min(max/w, max/h); w = Math.round(w*r); h = Math.round(h*r); }
       w = Math.round(w/64)*64 || 64; h = Math.round(h/64)*64 || 64;
       const c = document.createElement('canvas');
@@ -425,7 +425,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
       headers: { 'Content-Type': 'application/json', 'apikey': HORDE_KEY, 'Client-Agent': 'illus-gen:2.0:web' },
       body: JSON.stringify({
         prompt: style.prompt + ' ### ' + style.neg,
-        params: { sampler_name: 'k_euler_a', cfg_scale: 6, denoising_strength: parseFloat(strength), seed: String(Math.floor(Math.random() * 999999)), height, width, steps: 30, n: 1 },
+        params: { sampler_name: 'k_euler_a', cfg_scale: 6, denoising_strength: parseFloat(strength), seed: String(Math.floor(Math.random() * 999999)), height, width, steps: 25, n: 1 },
         source_image: base64, source_processing: 'img2img',
         models: ['stable_diffusion'],
         r2: false, nsfw: false, censor_nsfw: true, trusted_workers: false, slow_workers: true,
