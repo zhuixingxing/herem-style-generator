@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>插画风格生成器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --parchment: #f5efe0;
+  --parchment-dark: #ede3cc;
+  --ochre: #c17f24;
+  --ochre-light: #d4952e;
+  --blue-deep: #1e3a5f;
+  --blue-mid: #2a5298;
+  --terracotta: #b5451b;
+  --sage: #6b7c5c;
+  --ink: #1a1410;
+  --ink-light: #3d2e1e;
+  --shadow: rgba(30,20,10,0.15);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--parchment);
+  font-family: 'Lora', serif;
+  color: var(--ink);
+  min-height: 100vh;
+}
+header {
+  background: var(--blue-deep);
+  padding: 24px 20px 20px;
+  text-align: center;
+  border-bottom: 3px solid var(--ochre);
+}
+header h1 {
+  font-family: 'Playfair Display', serif;
+  color: var(--parchment);
+  font-size: 1.7rem;
+  letter-spacing: 0.03em;
+}
+header p {
+  color: #a8bedc;
+  font-size: 0.85rem;
+  margin-top: 4px;
+  font-style: italic;
+}
+.container { max-width: 760px; margin: 0 auto; padding: 28px 16px 60px; }
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--ochre);
+  border-radius: 10px;
+  background: #fdf7ec;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+.upload-zone:hover { background: #faf0d8; border-color: var(--ochre-light); }
+.upload-zone.has-image { border-style: solid; }
+.upload-zone img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  position: absolute; top: 0; left: 0;
+  border-radius: 8px;
+}
+.upload-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(30,58,95,0.75);
+  color: #fff;
+  font-size: 0.78rem;
+  padding: 6px;
+  text-align: center;
+}
+.upload-placeholder {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+.upload-placeholder svg { opacity: 0.45; }
+.upload-placeholder span { font-size: 0.9rem; color: var(--ink-light); }
+.upload-placeholder small { font-size: 0.75rem; color: #888; }
+#fileInput { display: none; }
+#origLabel { font-size: 0.78rem; color: var(--sage); margin-top: 6px; text-align: center; min-height: 16px; }
+
+/* Styles grid */
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  color: var(--blue-deep);
+  margin: 22px 0 10px;
+  border-bottom: 1px solid var(--parchment-dark);
+  padding-bottom: 4px;
+}
+.styles-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+@media(max-width:520px){ .styles-grid { grid-template-columns: repeat(2,1fr); } }
+.style-card {
+  border: 2px solid var(--parchment-dark);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  background: #fdf7ec;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.style-card:hover { border-color: var(--ochre); background: #faf0d8; }
+.style-card.active { border-color: var(--blue-deep); background: #e8f0fb; }
+.style-card .swatch {
+  height: 6px; border-radius: 3px;
+}
+.style-card .s-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--blue-deep);
+}
+.style-card .s-sub { font-size: 0.68rem; color: #888; font-style: italic; }
+
+/* Strength slider */
+.strength-row {
+  display: flex; align-items: center; gap: 12px;
+  margin: 14px 0 6px;
+}
+.strength-row label { font-size: 0.82rem; color: var(--ink-light); white-space: nowrap; }
+.strength-row input[type=range] { flex: 1; accent-color: var(--ochre); }
+.strength-row span { font-size: 0.82rem; color: var(--ochre); font-weight: 600; min-width: 36px; text-align: right; }
+
+/* Generate button */
+.btn-generate {
+  display: block; width: 100%;
+  background: var(--blue-deep);
+  color: var(--parchment);
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  border: none; border-radius: 8px;
+  padding: 13px 0;
+  cursor: pointer;
+  margin-top: 14px;
+  transition: background 0.2s;
+}
+.btn-generate:hover { background: var(--blue-mid); }
+.btn-generate:disabled { background: #8899aa; cursor: not-allowed; }
+
+/* Status */
+#status {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  display: none;
+  text-align: center;
+}
+#status.info { background: #e8f0fb; color: var(--blue-deep); border: 1px solid #b8cfe8; display: block; }
+#status.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; display: block; }
+#status.error { background: #fdecea; color: #c62828; border: 1px solid #ef9a9a; display: block; }
+
+/* Result */
+#resultSection { display: none; margin-top: 22px; }
+#resultSection h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem; color: var(--blue-deep);
+  margin-bottom: 10px;
+}
+#resultImg {
+  width: 100%; border-radius: 8px;
+  border: 1px solid var(--parchment-dark);
+  display: block;
+}
+.result-actions {
+  display: flex; gap: 10px; margin-top: 10px;
+}
+.btn-action {
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 7px;
+  border: 2px solid var(--ochre);
+  background: transparent;
+  color: var(--ochre);
+  font-family: 'Lora', serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-action:hover { background: var(--ochre); color: #fff; }
+
+/* History */
+#historySection { margin-top: 32px; }
+.history-photo-block { margin-bottom: 24px; }
+.history-photo-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px;
+}
+.history-photo-thumb {
+  width: 44px; height: 44px;
+  object-fit: cover; border-radius: 5px;
+  border: 1px solid var(--parchment-dark);
+  flex-shrink: 0;
+}
+.history-photo-meta { font-size: 0.78rem; color: #888; }
+.history-results-row {
+  display: flex; gap: 8px; overflow-x: auto;
+  padding-bottom: 4px;
+}
+.history-item {
+  flex-shrink: 0;
+  width: 120px;
+}
+.history-item img {
+  width: 120px; height: 80px;
+  object-fit: cover; border-radius: 6px;
+  border: 1px solid var(--parchment-dark);
+  display: block;
+}
+.history-item .h-label {
+  font-size: 0.68rem; color: var(--ink-light);
+  margin-top: 4px; line-height: 1.3;
+  text-align: center;
+}
+.empty-history {
+  font-size: 0.82rem; color: #aaa;
+  font-style: italic; text-align: center;
+  padding: 16px 0;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>插画风格生成器</h1>
+  <p>上传照片，转化为各种插画风格</p>
+</header>
+
+<div class="container">
+  <!-- Upload -->
+  <div class="section-title">上传照片</div>
+  <div class="upload-zone" id="uploadZone">
+    <img id="previewImg" style="display:none" />
+    <div class="upload-placeholder" id="uploadPlaceholder">
+      <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#c17f24" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+      </svg>
+      <span>点击或拖拽上传照片</span>
+      <small>支持 JPG、PNG、WEBP</small>
+    </div>
+    <div class="upload-overlay" id="uploadOverlay" style="display:none">点击更换照片</div>
+  </div>
+  <div id="origLabel"></div>
+  <input type="file" id="fileInput" accept="image/*">
+
+  <!-- Styles -->
+  <div class="section-title">选择风格</div>
+  <div class="styles-grid" id="stylesGrid"></div>
+
+  <!-- Strength -->
+  <div class="strength-row">
+    <label>风格强度</label>
+    <input type="range" id="strengthSlider" min="30" max="70" value="50" step="1">
+    <span id="strengthVal">50%</span>
+  </div>
+
+  <!-- Generate -->
+  <button class="btn-generate" id="generateBtn" onclick="generate()">生成插画</button>
+  <div id="status"></div>
+
+  <!-- Result -->
+  <div id="resultSection">
+    <h3 id="resultTitle">生成结果</h3>
+    <img id="resultImg" alt="生成插画">
+    <div class="result-actions">
+      <button class="btn-action" onclick="copyResult()">复制图片</button>
+      <button class="btn-action" onclick="downloadResult()">下载图片</button>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div id="historySection">
+    <div class="section-title">历史记录</div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<script>
+const STYLES = [
+  {
+    id: 'herem', name: 'Thibaud Hérem', sub: '手绘建筑水彩',
+    swatch: 'linear-gradient(90deg,#c17f24,#1e3a5f)',
+    prompt: 'Thibaud Herem illustration style, architectural watercolor, ink linework, warm ochre and deep blue palette, detailed hand-drawn buildings, european cityscape, fine hatching, parchment texture, artistic',
+    neg: 'photo, realistic, 3d render, blurry, modern digital art, harsh colors'
+  },
+  {
+    id: 'ghibli', name: 'Studio Ghibli', sub: '宫崎骏动画',
+    swatch: 'linear-gradient(90deg,#7ec8a0,#f9d976)',
+    prompt: 'Studio Ghibli anime style, soft watercolor backgrounds, whimsical illustration, miyazaki inspired, gentle colors, detailed nature, cel shading, magical atmosphere',
+    neg: 'photo, realistic, dark, violent, 3d render, harsh'
+  },
+  {
+    id: 'vangogh', name: 'Van Gogh', sub: '后印象派油画',
+    swatch: 'linear-gradient(90deg,#1a3a8f,#f5c842)',
+    prompt: 'Vincent van Gogh painting style, swirling brushstrokes, impasto texture, post-impressionist, vivid colors, expressive brushwork, starry night aesthetic, oil painting',
+    neg: 'photo, realistic, smooth, digital, flat colors'
+  },
+  {
+    id: 'monet', name: 'Claude Monet', sub: '印象派水彩',
+    swatch: 'linear-gradient(90deg,#6ab4e8,#c8e6a0)',
+    prompt: 'Claude Monet impressionist painting, soft dappled light, loose brushstrokes, pastel colors, water reflections, garden scene, hazy atmospheric perspective, oil on canvas',
+    neg: 'sharp edges, photo, realistic, harsh colors, dark, 3d'
+  },
+  {
+    id: 'ukiyoe', name: '浮世绘', sub: '日本木版画',
+    swatch: 'linear-gradient(90deg,#c0392b,#2980b9)',
+    prompt: 'Japanese ukiyo-e woodblock print style, bold outlines, flat color areas, traditional Japanese art, Hokusai style, decorative patterns, limited color palette, hand-printed texture',
+    neg: 'photo, realistic, 3d, western style, gradient, blurry'
+  },
+  {
+    id: 'hopper', name: 'Edward Hopper', sub: '美式现实主义',
+    swatch: 'linear-gradient(90deg,#e8a020,#2c5f8a)',
+    prompt: 'Edward Hopper painting style, dramatic light and shadow, solitary figures, American realism, architectural geometry, warm interior light, melancholy atmosphere, oil painting',
+    neg: 'busy, crowded, cartoon, anime, abstract, photo'
+  },
+  {
+    id: 'comic', name: '漫画风格', sub: '美式漫画',
+    swatch: 'linear-gradient(90deg,#e74c3c,#f39c12)',
+    prompt: 'American comic book style, bold black ink outlines, halftone dots, vibrant flat colors, dynamic composition, graphic novel illustration, strong contrast, pop art influence',
+    neg: 'photo, realistic, watercolor, soft, blurry, muted colors'
+  },
+  {
+    id: 'flat', name: '扁平插画', sub: '现代简约',
+    swatch: 'linear-gradient(90deg,#9b59b6,#3498db)',
+    prompt: 'flat design illustration, minimal geometric shapes, clean lines, modern vector art style, bold solid colors, simple composition, contemporary graphic design, no gradients',
+    neg: 'photo, realistic, texture, shadow, 3d, complex, detailed'
+  }
+];
+
+const HISTORY_KEY = 'herem_history_v3';
+let selectedStyle = STYLES[0];
+let currentPhotoDataUrl = null;
+let currentResultDataUrl = null;
+let origW = 0, origH = 0;
+
+// Render style cards
+const grid = document.getElementById('stylesGrid');
+STYLES.forEach(s => {
+  const card = document.createElement('div');
+  card.className = 'style-card' + (s.id === 'herem' ? ' active' : '');
+  card.dataset.id = s.id;
+  card.innerHTML = `<div class="swatch" style="background:${s.swatch}"></div><div class="s-name">${s.name}</div><div class="s-sub">${s.sub}</div>`;
+  card.onclick = () => {
+    document.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    selectedStyle = s;
+  };
+  grid.appendChild(card);
+});
+
+// Strength slider
+const slider = document.getElementById('strengthSlider');
+const strengthVal = document.getElementById('strengthVal');
+slider.oninput = () => { strengthVal.textContent = slider.value + '%'; };
+
+// Upload handling
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+uploadZone.onclick = () => fileInput.click();
+uploadZone.ondragover = e => { e.preventDefault(); uploadZone.style.background = '#faf0d8'; };
+uploadZone.ondragleave = () => { uploadZone.style.background = ''; };
+uploadZone.ondrop = e => { e.preventDefault(); uploadZone.style.background = ''; if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); };
+fileInput.onchange = () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); };
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentPhotoDataUrl = e.target.result;
+    const img = new Image();
+    img.onload = () => {
+      origW = img.naturalWidth;
+      origH = img.naturalHeight;
+      document.getElementById('origLabel').textContent = `原图 · ${origW}×${origH}`;
+    };
+    img.src = currentPhotoDataUrl;
+    showPreview(currentPhotoDataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+function showPreview(dataUrl) {
+  const prev = document.getElementById('previewImg');
+  prev.src = dataUrl;
+  prev.style.display = 'block';
+  document.getElementById('uploadPlaceholder').style.display = 'none';
+  document.getElementById('uploadOverlay').style.display = 'block';
+  uploadZone.classList.add('has-image');
+  uploadZone.style.minHeight = '200px';
+}
+
+function resizeForApi(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      const max = 768;
+      if (w > max || h > max) {
+        const r = Math.min(max / w, max / h);
+        w = Math.round(w * r); h = Math.round(h * r);
+      }
+      w = Math.round(w / 64) * 64 || 64;
+      h = Math.round(h / 64) * 64 || 64;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve({ base64: c.toDataURL('image/jpeg', 0.9).split(',')[1], width: w, height: h });
+    };
+    img.src = dataUrl;
+  });
+}
+
+function upscaleToOriginal(resultDataUrl, targetW, targetH) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = targetW; c.height = targetH;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+      resolve(c.toDataURL('image/jpeg', 0.95));
+    };
+    img.src = resultDataUrl;
+  });
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = type;
+}
+
+async function generate() {
+  if (!currentPhotoDataUrl) { setStatus('请先上传照片', 'error'); return; }
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  document.getElementById('resultSection').style.display = 'none';
+  setStatus('正在准备图片...', 'info');
+
+  try {
+    const { base64, width, height } = await resizeForApi(currentPhotoDataUrl);
+    const strength = parseInt(slider.value) / 100;
+
+    setStatus('正在提交到 Stable Horde...', 'info');
+    const resp = await fetch('https://stablehorde.net/api/v2/generate/async', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': '0000000000' },
+      body: JSON.stringify({
+        prompt: selectedStyle.prompt + ' ### ' + selectedStyle.neg,
+        params: {
+          width, height,
+          steps: 25,
+          cfg_scale: 7,
+          denoising_strength: strength,
+          sampler_name: 'k_euler_a',
+          n: 1
+        },
+        source_image: base64,
+        source_processing: 'img2img',
+        r2: false,
+        nsfw: false,
+        censor_nsfw: true
+      })
+    });
+    if (!resp.ok) { const t = await resp.text(); throw new Error('提交失败: ' + t); }
+    const { id } = await resp.json();
+
+    // Poll
+    let attempts = 0;
+    while (attempts < 90) {
+      await new Promise(r => setTimeout(r, 4000));
+      attempts++;
+      const chk = await fetch(`https://stablehorde.net/api/v2/generate/check/${id}`);
+      const chkData = await chk.json();
+      if (chkData.faulted) throw new Error('生成失败，请重试');
+      setStatus(`生成中... ${chkData.wait_time ? '预计等待 ' + chkData.wait_time + 's' : '处理中'}`, 'info');
+      if (chkData.done) {
+        const genResp = await fetch(`https://stablehorde.net/api/v2/generate/status/${id}`);
+        const genData = await genResp.json();
+        const gen = genData.generations?.[0];
+        if (!gen) throw new Error('无法获取生成结果');
+
+        const rawDataUrl = gen.img.startsWith('http') ? gen.img : 'data:image/jpeg;base64,' + gen.img;
+        setStatus('正在还原分辨率...', 'info');
+        const finalDataUrl = (origW > 0 && origH > 0)
+          ? await upscaleToOriginal(rawDataUrl, origW, origH)
+          : rawDataUrl;
+
+        currentResultDataUrl = finalDataUrl;
+        document.getElementById('resultImg').src = finalDataUrl;
+        document.getElementById('resultTitle').textContent = `${selectedStyle.name} 风格 · ${origW}×${origH}`;
+        document.getElementById('resultSection').style.display = 'block';
+        setStatus(`已还原至原始分辨率 ${origW}×${origH}`, 'success');
+
+        saveHistory(finalDataUrl, selectedStyle.name, parseInt(slider.value), origW, origH);
+        break;
+      }
+    }
+    if (attempts >= 90) throw new Error('等待超时，请重试');
+  } catch (e) {
+    setStatus(e.message || '生成失败', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function copyResult() {
+  if (!currentResultDataUrl) return;
+  try {
+    const res = await fetch(currentResultDataUrl);
+    const blob = await res.blob();
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    setStatus('已复制到剪贴板', 'success');
+  } catch {
+    try {
+      const img = document.getElementById('resultImg');
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext('2d').drawImage(img, 0, 0);
+      c.toBlob(async blob => {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          setStatus('已复制到剪贴板', 'success');
+        } catch { setStatus('复制失败，请手动长按图片保存', 'error'); }
+      });
+    } catch { setStatus('复制失败，请手动保存', 'error'); }
+  }
+}
+
+function downloadResult() {
+  if (!currentResultDataUrl) return;
+  const a = document.createElement('a');
+  a.href = currentResultDataUrl;
+  a.download = `illustration_${selectedStyle.id}_${Date.now()}.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setStatus('下载已开始', 'success');
+}
+
+// History
+function loadHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; } }
+function saveHistoryData(data) { localStorage.setItem(HISTORY_KEY, JSON.stringify(data)); }
+
+function saveHistory(imgDataUrl, styleName, strength, w, h) {
+  const history = loadHistory();
+  const key = btoa(currentPhotoDataUrl.slice(0, 64)).replace(/=/g, '');
+  let photoEntry = history.find(p => p.key === key);
+  if (!photoEntry) {
+    photoEntry = { key, orig: currentPhotoDataUrl, firstUploaded: Date.now(), results: [] };
+    history.unshift(photoEntry);
+    if (history.length > 3) history.pop();
+  } else {
+    history.splice(history.indexOf(photoEntry), 1);
+    history.unshift(photoEntry);
+  }
+  photoEntry.results.unshift({
+    img: imgDataUrl, time: Date.now(), style: styleName,
+    strength, label: `${styleName} · ${strength}% · ${w}×${h}`
+  });
+  if (photoEntry.results.length > 3) photoEntry.results.pop();
+  saveHistoryData(history);
+  renderHistory();
+}
+
+function renderHistory() {
+  const history = loadHistory();
+  const list = document.getElementById('historyList');
+  if (!history.length) {
+    list.innerHTML = '<div class="empty-history">暂无历史记录</div>';
+    return;
+  }
+  list.innerHTML = history.map((photo, pi) => `
+    <div class="history-photo-block">
+      <div class="history-photo-header">
+        <img class="history-photo-thumb" src="${photo.orig}" alt="原图${pi+1}">
+        <div class="history-photo-meta">${new Date(photo.firstUploaded).toLocaleDateString('zh')}<br>共 ${photo.results.length} 次生成</div>
+      </div>
+      <div class="history-results-row">
+        ${photo.results.map(r => `
+          <div class="history-item">
+            <img src="${r.img}" alt="${r.style}">
+            <div class="h-label">${r.label}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+renderHistory();
+</script>
+</body>
+</html>
