@@ -528,7 +528,7 @@ function resizeForApi(dataUrl) {
     const img = new Image();
     img.onload = () => {
       let w = img.width, h = img.height;
-      const max = 1024;
+      const max = 704; // free account limit: ≤712×712 without kudos
       if (w > max || h > max) { const r = Math.min(max/w, max/h); w = Math.round(w*r); h = Math.round(h*r); }
       w = Math.round(w/64)*64 || 64; h = Math.round(h/64)*64 || 64;
       const c = document.createElement('canvas');
