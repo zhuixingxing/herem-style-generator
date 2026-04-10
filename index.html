@@ -271,7 +271,7 @@ const STYLES = [
     portrait: {
       prompt_add: ', illustrated portrait, expressive detailed face, Thibaud Herem character, warm skin ink wash, fine facial line work',
       neg_add: ', deformed face, distorted eyes, disfigured, bad anatomy',
-      params: { cfg_scale: 7, sampler_name: 'k_euler_a', steps: 38, denoise_cap: 0.60 },
+      params: { cfg_scale: 7, sampler_name: 'k_euler_a', steps: 35, denoise_cap: 0.60 },
     },
   },
   {
@@ -279,11 +279,11 @@ const STYLES = [
     swatch: 'linear-gradient(90deg,#7ab648,#3a8abf)',
     prompt: 'Studio Ghibli anime illustration style, Hayao Miyazaki, hand-painted cel animation, lush nature, soft warm sunlight, painterly background art, whimsical storybook atmosphere, detailed environment, gentle color palette',
     neg: 'photorealistic, low quality, 3D render, harsh shadows',
-    params: { cfg_scale: 8, sampler_name: 'k_euler_a', steps: 38 },
+    params: { cfg_scale: 8, sampler_name: 'k_euler_a', steps: 35 },
     portrait: {
       prompt_add: ', beautiful anime face, Ghibli character portrait, large expressive eyes, Miyazaki heroine, soft cel-shaded skin, detailed hair',
       neg_add: ', ugly face, poorly drawn face, extra fingers, bad anatomy, deformed eyes',
-      params: { cfg_scale: 9, sampler_name: 'k_euler_a', steps: 40, denoise_cap: 0.62 },
+      params: { cfg_scale: 9, sampler_name: 'k_euler_a', steps: 35, denoise_cap: 0.62 },
     },
   },
   {
@@ -291,11 +291,11 @@ const STYLES = [
     swatch: 'linear-gradient(90deg,#f5c842,#1a3d7a)',
     prompt: 'Vincent van Gogh painting style, swirling impasto brushstrokes, post-impressionist oil painting, bold vibrant yellows and blues, expressive thick paint texture, dynamic emotional atmosphere',
     neg: 'photorealistic, flat, low quality, smooth',
-    params: { cfg_scale: 9, sampler_name: 'k_dpm_2_a', steps: 35 },
+    params: { cfg_scale: 9, sampler_name: 'k_euler_a', steps: 35 },
     portrait: {
       prompt_add: ', Van Gogh self-portrait style, thick swirling brushstrokes on face, intense emotional gaze, expressionist portrait, textured skin paint',
       neg_add: ', photorealistic face, smooth skin, flat, deformed features',
-      params: { cfg_scale: 10, sampler_name: 'k_dpm_2_a', steps: 38, denoise_cap: 0.58 },
+      params: { cfg_scale: 10, sampler_name: 'k_euler_a', steps: 38, denoise_cap: 0.58 },
     },
   },
   {
@@ -327,11 +327,11 @@ const STYLES = [
     swatch: 'linear-gradient(90deg,#d4a84b,#2c1f0e)',
     prompt: 'Edward Hopper realist oil painting style, dramatic directional light and deep shadow, solitary melancholic mood, American scene painting, cinematic warm sunlight through windows, detailed architectural realism',
     neg: 'anime, cartoon, low quality, blurry',
-    params: { cfg_scale: 8, sampler_name: 'k_dpm_2_a', steps: 32 },
+    params: { cfg_scale: 8, sampler_name: 'k_euler_a', steps: 32 },
     portrait: {
       prompt_add: ', Edward Hopper figure painting, solitary person, dramatic sidelight on face, contemplative expression, realistic oil painted features, psychological realism',
       neg_add: ', anime, cartoon, distorted proportions, disfigured face',
-      params: { cfg_scale: 9, sampler_name: 'k_dpm_2_a', steps: 35, denoise_cap: 0.62 },
+      params: { cfg_scale: 9, sampler_name: 'k_euler_a', steps: 35, denoise_cap: 0.62 },
     },
   },
   {
@@ -528,7 +528,7 @@ function resizeForApi(dataUrl) {
     const img = new Image();
     img.onload = () => {
       let w = img.width, h = img.height;
-      const max = 704; // free account limit: ≤712×712 without kudos
+      const max = 576; // free account limit: ≤576×576 without kudos
       if (w > max || h > max) { const r = Math.min(max/w, max/h); w = Math.round(w*r); h = Math.round(h*r); }
       w = Math.round(w/64)*64 || 64; h = Math.round(h/64)*64 || 64;
       const c = document.createElement('canvas');
