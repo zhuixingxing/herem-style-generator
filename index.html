@@ -2,8 +2,15 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Illustration Style Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Hérem Style Generator</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hérem Style">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="msapplication-TileColor" content="#1e3a5f">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lora:ital@0;1&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -18,9 +25,9 @@
     --sage: #6b7c5c;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Lora', Georgia, serif; background-color: var(--parchment); color: var(--ink); min-height: 100vh; text-align: center; }
+  body { font-family: 'Lora', Georgia, serif; background-color: var(--parchment); color: var(--ink); min-height: 100vh; text-align: center; padding-bottom: env(safe-area-inset-bottom); }
 
-  header { background: var(--blue-deep); }
+  header { background: var(--blue-deep); padding-top: env(safe-area-inset-top); }
   .header-inner { padding: 36px 40px 28px; }
   .header-ornament { display: block; font-size: 0.7rem; letter-spacing: 6px; color: var(--ochre); opacity: 0.8; margin-bottom: 10px; font-family: 'Playfair Display', serif; }
   header h1 { font-family: 'Playfair Display', serif; font-size: 2.2rem; font-weight: 700; color: var(--parchment); letter-spacing: 4px; line-height: 1.1; }
@@ -646,6 +653,13 @@ function restorePhoto(photoIdx) {
 }
 
 renderHistory();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
 </script>
 </body>
 </html>
