@@ -77,6 +77,27 @@
   .upload-overlay svg { width: 32px; height: 32px; color: var(--ochre); }
   #fileInput { display: none; }
 
+  /* ── Service selector ── */
+  .service-tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; justify-content: center; }
+  .svc-tab { font-family: 'Playfair Display', serif; font-size: 0.68rem; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 16px; border: 1.5px solid #d4b896; border-radius: 4px; background: rgba(255,255,255,0.5); color: #7a6048; cursor: pointer; transition: all 0.2s; }
+  .svc-tab.active { background: var(--blue-deep); color: var(--parchment); border-color: var(--blue-deep); }
+  .svc-tab:hover:not(.active) { border-color: var(--ochre); color: var(--ochre-dark); }
+
+  /* ── API key area ── */
+  .apikey-area { display: none; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(30,58,95,0.06); border: 1px solid rgba(30,58,95,0.2); border-radius: 4px; padding: 12px 16px; margin-bottom: 14px; }
+  .apikey-area.show { display: flex; }
+  .apikey-area-label { font-family: 'Playfair Display', serif; font-size: 0.7rem; letter-spacing: 1px; color: var(--blue-deep); white-space: nowrap; }
+  .apikey-input { flex: 1; min-width: 160px; border: 1px solid #d4b896; border-radius: 3px; padding: 6px 10px; font-family: 'Lora', serif; font-size: 0.82rem; color: var(--ink); background: #fff; outline: none; }
+  .apikey-input:focus { border-color: var(--ochre); }
+  .apikey-save-btn { font-family: 'Playfair Display', serif; font-size: 0.67rem; letter-spacing: 1px; text-transform: uppercase; padding: 7px 14px; background: var(--blue-deep); color: var(--parchment); border: none; border-radius: 3px; cursor: pointer; white-space: nowrap; }
+  .apikey-save-btn:hover { background: var(--ochre-dark); }
+  .apikey-link { font-family: 'Lora', serif; font-style: italic; font-size: 0.72rem; color: var(--blue-mid); text-decoration: none; }
+  .apikey-link:hover { text-decoration: underline; }
+  .apikey-ok { font-family: 'Lora', serif; font-style: italic; font-size: 0.72rem; color: var(--sage); }
+
+  /* ── Service note ── */
+  .svc-note { font-family: 'Lora', serif; font-style: italic; font-size: 0.78rem; color: #7a6048; text-align: center; margin-bottom: 14px; padding: 10px 16px; background: rgba(255,255,255,0.4); border: 1px dashed #d4b896; border-radius: 4px; line-height: 1.6; display: none; }
+
   .style-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin-bottom: 28px; }
   .style-card { border: 1.5px solid #d4b896; border-radius: 5px; overflow: hidden; cursor: pointer; transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s; background: rgba(255,255,255,0.5); text-align: center; position: relative; }
   .style-card:hover { border-color: var(--ochre); transform: translateY(-2px); box-shadow: 0 3px 10px rgba(43,29,14,0.1); }
@@ -96,7 +117,6 @@
   input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--ochre); border: 2px solid var(--parchment); box-shadow: 0 1px 4px rgba(0,0,0,0.25); cursor: pointer; }
   .slider-val { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--ochre-dark); width: 44px; text-align: center; }
 
-  /* Generate + Cancel button row */
   .btn-row { display: flex; gap: 10px; align-items: stretch; }
   .btn { flex: 1; display: block; padding: 17px; background: var(--blue-deep); color: var(--parchment); border: none; border-radius: 4px; font-family: 'Playfair Display', serif; font-size: 1rem; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; transition: background 0.25s, transform 0.1s; }
   .btn::before { content: '— '; opacity: 0.5; font-style: italic; }
@@ -240,12 +260,34 @@
     </span>
   </div>
 
-  <div class="section-label" style="margin-top:32px">选择插画风格</div>
+  <!-- Service selector -->
+  <div class="section-label" style="margin-top:32px">选择生成服务</div>
+  <div class="service-tabs" id="serviceTabs">
+    <button class="svc-tab" data-svc="horde" onclick="selectService('horde')">Stable Horde</button>
+    <button class="svc-tab" data-svc="deepai" onclick="selectService('deepai')">DeepAI</button>
+    <button class="svc-tab" data-svc="gemini" onclick="selectService('gemini')">Gemini</button>
+    <button class="svc-tab" data-svc="puter" onclick="selectService('puter')">Puter.js</button>
+  </div>
+
+  <!-- API key area (DeepAI / Gemini) -->
+  <div class="apikey-area" id="apikeyArea">
+    <span class="apikey-area-label" id="apikeyLabel">API Key：</span>
+    <input class="apikey-input" type="password" id="apikeyInput" placeholder="粘贴 API Key…"
+      onkeydown="if(event.key==='Enter')saveServiceKey()">
+    <button class="apikey-save-btn" onclick="saveServiceKey()">保存</button>
+    <a class="apikey-link" id="apikeyLink" href="#" target="_blank" rel="noopener">免费获取 Key ↗</a>
+    <span class="apikey-ok" id="apikeyOk">✓ 已设置</span>
+  </div>
+
+  <!-- Service-specific hint -->
+  <div class="svc-note" id="svcNote"></div>
+
+  <div class="section-label">选择插画风格</div>
   <div class="style-grid" id="styleGrid"></div>
 
   <div class="controls">
     <label>风格强度
-      <span>保持画面内容与构图不变，仅调整插画风格渲染程度</span>
+      <span>保持画面内容与构图不变，仅调整插画风格渲染程度（仅 Stable Horde 有效）</span>
     </label>
     <div class="slider-row">
       <input type="range" id="strength" min="30" max="70" value="50">
@@ -307,6 +349,8 @@ const STYLES = [
       neg_add: ', deformed face, distorted eyes, disfigured, bad anatomy',
       params: { cfg_scale: 7, sampler_name: 'k_euler_a', steps: 35, denoise_cap: 0.60 },
     },
+    instruction: 'Transform this photo into the illustration style of Thibaud Hérem: detailed architectural line art with vibrant watercolor washes, warm golden light, rich ochre and deep blue color tones, intricate hand-drawn building details. Preserve the composition and main subject.',
+    puterPrompt: 'Thibaud Herem illustration style, detailed architectural line art, vibrant watercolor washes, warm golden ochre and deep blue tones, intricate hand-drawn details, masterpiece quality',
   },
   {
     id: 'ghibli', name: 'Studio Ghibli', sub: '吉卜力动画风',
@@ -319,6 +363,8 @@ const STYLES = [
       neg_add: ', ugly face, poorly drawn face, extra fingers, bad anatomy, deformed eyes',
       params: { cfg_scale: 9, sampler_name: 'k_euler_a', steps: 35, denoise_cap: 0.62 },
     },
+    instruction: 'Transform this photo into Studio Ghibli anime illustration style by Hayao Miyazaki: hand-painted cel animation look, lush vibrant nature, soft warm sunlight, painterly whimsical storybook atmosphere. Preserve the main subject and composition.',
+    puterPrompt: 'Studio Ghibli anime style, Hayao Miyazaki, hand-painted cel animation, lush nature, soft warm sunlight, whimsical storybook illustration, detailed background art',
   },
   {
     id: 'vangogh', name: 'Van Gogh', sub: '后印象派油画',
@@ -331,6 +377,8 @@ const STYLES = [
       neg_add: ', photorealistic face, smooth skin, flat, deformed features',
       params: { cfg_scale: 10, sampler_name: 'k_euler_a', steps: 38, denoise_cap: 0.58 },
     },
+    instruction: 'Transform this photo into a Vincent van Gogh painting: thick swirling impasto brushstrokes, bold vibrant yellows and deep blues, post-impressionist oil painting texture, dynamic emotional atmosphere. Preserve the main subject.',
+    puterPrompt: 'Vincent van Gogh painting style, swirling impasto brushstrokes, post-impressionist oil painting, bold yellows and blues, expressive thick paint texture, emotional masterpiece',
   },
   {
     id: 'monet', name: 'Monet', sub: '法式印象派',
@@ -343,6 +391,8 @@ const STYLES = [
       neg_add: ', harsh outlines, photorealistic face, distorted, sharp edges',
       params: { cfg_scale: 7, sampler_name: 'k_euler_a', steps: 32, denoise_cap: 0.58 },
     },
+    instruction: 'Transform this photo into a Claude Monet impressionist painting: loose flowing brushstrokes, vibrant dappled light, soft blurred edges, pastel color palette, plein air outdoor atmosphere. Preserve the main subject.',
+    puterPrompt: 'Claude Monet impressionist painting, loose flowing brushstrokes, vibrant dappled light, soft blurred edges, pastel colors, French impressionism masterpiece',
   },
   {
     id: 'ukiyoe', name: '浮世绘', sub: '日式木版画',
@@ -355,6 +405,8 @@ const STYLES = [
       neg_add: ', photorealistic face, 3D, western portrait, distorted features',
       params: { cfg_scale: 11, sampler_name: 'k_euler', steps: 38, denoise_cap: 0.60 },
     },
+    instruction: 'Transform this photo into Japanese ukiyo-e woodblock print style: flat areas of bold color, crisp black outlines, Hiroshige aesthetic, decorative patterns, traditional Edo period Japanese art with elegant minimal composition.',
+    puterPrompt: 'Japanese ukiyo-e woodblock print style, flat bold colors, crisp black outlines, Hiroshige landscape, decorative patterns, traditional Japanese Edo period art',
   },
   {
     id: 'hopper', name: 'E. Hopper', sub: '美式写实油画',
@@ -367,6 +419,8 @@ const STYLES = [
       neg_add: ', anime, cartoon, distorted proportions, disfigured face',
       params: { cfg_scale: 9, sampler_name: 'k_euler_a', steps: 35, denoise_cap: 0.62 },
     },
+    instruction: 'Transform this photo into an Edward Hopper oil painting: dramatic directional light casting deep shadows, solitary melancholic American scene mood, cinematic warm sunlight, detailed architectural realism, strong contrast.',
+    puterPrompt: 'Edward Hopper realist oil painting style, dramatic directional light, deep shadows, solitary melancholic mood, American scene, warm sunlight through windows, cinematic',
   },
   {
     id: 'comic', name: '漫画风格', sub: '美式漫画插画',
@@ -379,6 +433,8 @@ const STYLES = [
       neg_add: ', photorealistic face, blurry features, soft shading, low detail',
       params: { cfg_scale: 11, sampler_name: 'k_euler', steps: 32, denoise_cap: 0.65 },
     },
+    instruction: 'Transform this photo into American comic book illustration style: bold black ink outlines, vibrant flat halftone colors, Ben-Day dots texture, graphic novel composition, strong high-contrast colors.',
+    puterPrompt: 'American comic book style, bold black ink outlines, vibrant flat halftone colors, Ben-Day dots, graphic novel art, dynamic composition, strong contrast',
   },
   {
     id: 'flat', name: '扁平插画', sub: '现代矢量风格',
@@ -391,30 +447,42 @@ const STYLES = [
       neg_add: ', photorealistic face, detailed texture, complex shading, distorted',
       params: { cfg_scale: 10, sampler_name: 'k_euler', steps: 28, denoise_cap: 0.60 },
     },
+    instruction: 'Transform this photo into modern flat vector illustration style: clean geometric shapes, minimal detail, bold solid colors, contemporary graphic design aesthetic, simple elegant composition without any textures.',
+    puterPrompt: 'Modern flat vector illustration style, clean geometric shapes, minimal detail, bold solid colors, contemporary graphic design, simple elegant composition',
   },
 ];
 
+// DeepAI has a single cartoon-style endpoint
+const DEEPAI_STYLE = {
+  id: 'toonify', name: 'Toonify', sub: '照片卡通化',
+  swatch: 'linear-gradient(90deg,#ff6b6b,#feca57)',
+};
+
+// ── State ──
 let activeStyleId    = 'herem';
+let activeService    = localStorage.getItem('herem_service') || 'horde';
 let originalDataUrl  = null;
 let currentPhotoKey  = null;
 let currentResultB64 = null;
 let pollTimer        = null;
 let origW = 0, origH = 0;
-let currentJobId     = null;   // ← tracks active Stable Horde job
-let isCancelled      = false;  // ← cancel flag
-let isPortrait       = false;  // ← portrait detection result
+let currentJobId     = null;
+let isCancelled      = false;
+let isPortrait       = false;
 
-const HORDE_BASE  = 'https://stablehorde.net/api/v2';
-const HORDE_KEY   = 'zIeAXOrrSLBTkgKiNiDzjQ';
-const HISTORY_KEY = 'herem_history_v3';
+const HORDE_BASE   = 'https://stablehorde.net/api/v2';
+const HORDE_KEY    = 'zIeAXOrrSLBTkgKiNiDzjQ';
+const HISTORY_KEY  = 'herem_history_v3';
+const DEEPAI_KEY_K = 'herem_deepai_key';
+const GEMINI_KEY_K = 'herem_gemini_key';
 
-// ── Site name customisation ──
+// ── Site name ──
 const DEFAULT_TITLE = 'Illustration Style Generator';
 const TITLE_KEY = 'herem_site_title';
+const SVC_NAMES = { horde: 'Stable Horde', deepai: 'DeepAI', gemini: 'Google Gemini', puter: 'Puter.js' };
 
 function applySiteName(name) {
   const display = name || DEFAULT_TITLE;
-  // Header: preserve <em> on second word if default-like
   const parts = display.split(' ');
   let h1html;
   if (parts.length >= 2) {
@@ -424,7 +492,7 @@ function applySiteName(name) {
   }
   document.getElementById('siteTitle').innerHTML = h1html;
   document.title = display;
-  document.getElementById('siteFooter').textContent = display + ' · Powered by Stable Horde';
+  document.getElementById('siteFooter').textContent = display + ' · Powered by ' + (SVC_NAMES[activeService] || 'Stable Horde');
 }
 
 function openEditName() {
@@ -448,12 +516,87 @@ function resetSiteName() {
   document.getElementById('editNameInput').value = '';
   closeEditName();
 }
-// Apply on load
-applySiteName(localStorage.getItem(TITLE_KEY) || '');
+
+// ── Service selector ──
+function selectService(svcId) {
+  activeService = svcId;
+  localStorage.setItem('herem_service', svcId);
+
+  document.querySelectorAll('.svc-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.svc === svcId)
+  );
+
+  // Reset activeStyleId when switching to/from DeepAI
+  if (svcId === 'deepai') {
+    activeStyleId = 'toonify';
+  } else if (activeStyleId === 'toonify') {
+    activeStyleId = STYLES[0].id;
+  }
+
+  updateApikeyArea();
+  buildStyleGrid();
+
+  const siteTitle = localStorage.getItem(TITLE_KEY) || DEFAULT_TITLE;
+  document.getElementById('siteFooter').textContent = siteTitle + ' · Powered by ' + (SVC_NAMES[svcId] || 'Stable Horde');
+}
+
+function updateApikeyArea() {
+  const area   = document.getElementById('apikeyArea');
+  const label  = document.getElementById('apikeyLabel');
+  const link   = document.getElementById('apikeyLink');
+  const okEl   = document.getElementById('apikeyOk');
+  const input  = document.getElementById('apikeyInput');
+  const note   = document.getElementById('svcNote');
+
+  okEl.style.display = 'none';
+
+  if (activeService === 'deepai') {
+    area.classList.add('show');
+    label.textContent = 'DeepAI API Key：';
+    link.href = 'https://deepai.org';
+    link.textContent = '免费注册获取 ↗';
+    const key = localStorage.getItem(DEEPAI_KEY_K) || '';
+    input.value = key ? '••••••••' : '';
+    input.placeholder = '粘贴 DeepAI API Key…';
+    if (key) { okEl.style.display = 'inline'; }
+    note.textContent = 'DeepAI 仅支持 Toonify 卡通化风格转换，风格强度滑块无效。';
+    note.style.display = 'block';
+  } else if (activeService === 'gemini') {
+    area.classList.add('show');
+    label.textContent = 'Gemini API Key：';
+    link.href = 'https://aistudio.google.com/';
+    link.textContent = '免费获取 Key ↗';
+    const key = localStorage.getItem(GEMINI_KEY_K) || '';
+    input.value = key ? '••••••••' : '';
+    input.placeholder = '粘贴 Google AI Studio Key…';
+    if (key) { okEl.style.display = 'inline'; }
+    note.textContent = 'Gemini 2.0 Flash 图像生成，500 次/天免费额度。支持所有风格，通过自然语言指令引导风格转换。';
+    note.style.display = 'block';
+  } else if (activeService === 'puter') {
+    area.classList.remove('show');
+    note.textContent = 'Puter.js 完全免费，无需 API Key。首次使用需注册/登录 Puter 账号（弹窗引导），之后分两步：AI 分析图片内容 → 按风格重新生成插画。';
+    note.style.display = 'block';
+  } else {
+    area.classList.remove('show');
+    note.style.display = 'none';
+  }
+}
+
+function saveServiceKey() {
+  const val = document.getElementById('apikeyInput').value.trim();
+  if (!val || val === '••••••••') return;
+  if (activeService === 'deepai') localStorage.setItem(DEEPAI_KEY_K, val);
+  else if (activeService === 'gemini') localStorage.setItem(GEMINI_KEY_K, val);
+  const okEl = document.getElementById('apikeyOk');
+  okEl.style.display = 'inline';
+  okEl.textContent = '✓ 已保存';
+  document.getElementById('apikeyInput').value = '••••••••';
+}
 
 // ── Style grid ──
 function buildStyleGrid() {
-  document.getElementById('styleGrid').innerHTML = STYLES.map(s => `
+  const styles = activeService === 'deepai' ? [DEEPAI_STYLE] : STYLES;
+  document.getElementById('styleGrid').innerHTML = styles.map(s => `
     <div class="style-card ${s.id === activeStyleId ? 'active' : ''}" onclick="selectStyle('${s.id}')" id="card-${s.id}">
       <div class="style-check">✓</div>
       <div class="style-swatch" style="background:${s.swatch}"></div>
@@ -463,13 +606,15 @@ function buildStyleGrid() {
       </div>
     </div>`).join('');
 }
+
 function selectStyle(id) {
   activeStyleId = id;
   document.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
-  document.getElementById('card-' + id).classList.add('active');
-  document.getElementById('resultLabel').textContent = STYLES.find(s => s.id === id).name + ' Style';
+  const card = document.getElementById('card-' + id);
+  if (card) card.classList.add('active');
+  const style = activeService === 'deepai' ? DEEPAI_STYLE : STYLES.find(s => s.id === id);
+  if (style) document.getElementById('resultLabel').textContent = style.name + ' Style';
 }
-buildStyleGrid();
 
 // ── Upload ──
 const dropZone = document.getElementById('dropZone');
@@ -489,7 +634,6 @@ function handleFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
     originalDataUrl = e.target.result;
-    // Use length + data from 1/3 position — avoids identical JPEG headers tripping the match
     const _len = originalDataUrl.length;
     currentPhotoKey = _len + '_' + originalDataUrl.substring(Math.floor(_len / 3), Math.floor(_len / 3) + 120);
     const img = new Image();
@@ -499,7 +643,6 @@ function handleFile(file) {
     };
     img.src = originalDataUrl;
 
-    // Reset portrait state and run detection
     isPortrait = false;
     document.getElementById('portraitBadge').classList.remove('show');
     detectPortrait(originalDataUrl).then(result => {
@@ -528,12 +671,8 @@ function setStatus(msg, type) {
 // ── Cancel ──
 async function cancelGeneration() {
   isCancelled = true;
-
-  // Stop the poll loop
   if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
-
-  // Ask Stable Horde to delete the job (best-effort)
-  if (currentJobId) {
+  if (activeService === 'horde' && currentJobId) {
     try {
       await fetch(`${HORDE_BASE}/generate/status/${currentJobId}`, {
         method: 'DELETE',
@@ -542,7 +681,6 @@ async function cancelGeneration() {
     } catch (_) {}
     currentJobId = null;
   }
-
   resetGeneratingState();
   setStatus('已取消生成。', 'cancelled');
 }
@@ -559,18 +697,16 @@ function setGenerating(on) {
 
 // ── Portrait detection ──
 function isSkinPixel(r, g, b) {
-  // Peer et al. RGB skin rule — filters out ochre/amber/wood by requiring B/G > 0.50
   return (
     r > 95 && g > 40 && b > 20 &&
     Math.max(r, g, b) - Math.min(r, g, b) > 15 &&
     Math.abs(r - g) > 15 &&
     r > g && r > b &&
-    b > g * 0.50   // rejects warm golden/ochre/wooden tones (low B relative to G)
+    b > g * 0.50
   );
 }
 
 async function detectPortrait(dataUrl) {
-  // Try native FaceDetector API (Chrome / Android WebView)
   if ('FaceDetector' in window) {
     try {
       const fd = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
@@ -581,7 +717,6 @@ async function detectPortrait(dataUrl) {
       if (faces.length > 0) return true;
     } catch (_) {}
   }
-  // Fallback: canvas skin-tone analysis with face-zone concentration check
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
@@ -591,11 +726,8 @@ async function detectPortrait(dataUrl) {
       c.width = w; c.height = h;
       c.getContext('2d').drawImage(img, 0, 0, w, h);
       const data = c.getContext('2d').getImageData(0, 0, w, h).data;
-
-      // Face zone: center 60% width × top 85% height (where faces typically appear)
       const fxMin = w * 0.20, fxMax = w * 0.80, fyMax = h * 0.85;
       let skinTotal = 0, skinInZone = 0;
-
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           const i = (y * w + x) * 4;
@@ -605,23 +737,21 @@ async function detectPortrait(dataUrl) {
           }
         }
       }
-
-      const skinRatio  = skinTotal / (w * h);
-      const zoneConc   = skinTotal > 0 ? skinInZone / skinTotal : 0;
-      // Portrait: >15% skin pixels AND >55% of them concentrated in face zone
+      const skinRatio = skinTotal / (w * h);
+      const zoneConc  = skinTotal > 0 ? skinInZone / skinTotal : 0;
       resolve(skinRatio > 0.15 && zoneConc > 0.55);
     };
     img.src = dataUrl;
   });
 }
 
-// Resize for API (max 1024px — registered user limit)
+// ── Image helpers ──
 function resizeForApi(dataUrl) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
       let w = img.width, h = img.height;
-      const max = 576; // free account limit: ≤576×576 without kudos
+      const max = 576;
       if (w > max || h > max) { const r = Math.min(max/w, max/h); w = Math.round(w*r); h = Math.round(h*r); }
       w = Math.round(w/64)*64 || 64; h = Math.round(h/64)*64 || 64;
       const c = document.createElement('canvas');
@@ -633,7 +763,6 @@ function resizeForApi(dataUrl) {
   });
 }
 
-// Compress image to a thumbnail for localStorage (max 300px, JPEG 0.7)
 function makeThumbnail(dataUrl, maxPx) {
   return new Promise(resolve => {
     const img = new Image();
@@ -650,20 +779,30 @@ function makeThumbnail(dataUrl, maxPx) {
   });
 }
 
-// ── Generate ──
+// ── Generate button handler ──
 document.getElementById('generateBtn').addEventListener('click', async () => {
   if (!originalDataUrl) return;
-
   isCancelled = false;
   currentJobId = null;
   setGenerating(true);
   document.getElementById('results').classList.remove('show');
-  setStatus('正在处理图片...', 'info');
 
+  if (activeService === 'horde') {
+    await generateWithHorde();
+  } else if (activeService === 'deepai') {
+    await generateWithDeepAI();
+  } else if (activeService === 'gemini') {
+    await generateWithGemini();
+  } else if (activeService === 'puter') {
+    await generateWithPuter();
+  }
+});
+
+// ── Stable Horde ──
+async function generateWithHorde() {
   const strengthPct = parseInt(document.getElementById('strength').value);
-  const style       = STYLES.find(s => s.id === activeStyleId);
+  const style = STYLES.find(s => s.id === activeStyleId);
 
-  // Merge base params + portrait overrides
   const p = isPortrait && style.portrait
     ? { ...style.params, ...style.portrait.params }
     : { ...style.params };
@@ -671,7 +810,6 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   const finalPrompt = style.prompt + (isPortrait && style.portrait ? style.portrait.prompt_add : '');
   const finalNeg    = style.neg    + (isPortrait && style.portrait ? style.portrait.neg_add    : '');
 
-  // Compute denoising: slider 30-70, optionally capped for portrait face preservation
   let denoising = strengthPct / 100;
   if (isPortrait && p.denoise_cap) denoising = Math.min(denoising, p.denoise_cap);
   delete p.denoise_cap;
@@ -708,7 +846,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
       resetGeneratingState();
     }
   }
-});
+}
 
 async function pollStatus(jobId, styleName, strengthPct) {
   if (pollTimer) clearTimeout(pollTimer);
@@ -734,7 +872,6 @@ async function pollStatus(jobId, styleName, strengthPct) {
       if (!gen || !gen.img) throw new Error('未获得图片结果');
 
       const finalDataUrl = gen.img.startsWith('http') ? gen.img : 'data:image/jpeg;base64,' + gen.img;
-
       if (isCancelled) return;
 
       currentJobId = null;
@@ -755,6 +892,176 @@ async function pollStatus(jobId, styleName, strengthPct) {
     if (isCancelled) return;
     setStatus('查询中: ' + e.message + '，5秒后重试...<div class="progress-bar"><div class="progress-fill" id="pf" style="width:30%"></div></div>', 'info');
     pollTimer = setTimeout(() => pollStatus(jobId, styleName, strengthPct), 5000);
+  }
+}
+
+// ── DeepAI ──
+async function generateWithDeepAI() {
+  const apiKey = localStorage.getItem(DEEPAI_KEY_K);
+  if (!apiKey) {
+    setStatus('请先输入并保存 DeepAI API Key', 'error');
+    resetGeneratingState();
+    return;
+  }
+  try {
+    setStatus('正在提交到 DeepAI Toonify...', 'info');
+    const blob = await dataUrlToBlob(originalDataUrl);
+    const formData = new FormData();
+    formData.append('image', blob, 'image.jpg');
+
+    const res = await fetch('https://api.deepai.org/api/toonify', {
+      method: 'POST',
+      headers: { 'api-key': apiKey },
+      body: formData,
+    });
+
+    if (isCancelled) return;
+    if (!res.ok) throw new Error('DeepAI 请求失败 ' + res.status);
+    const data = await res.json();
+    if (data.err) throw new Error(data.err);
+    if (!data.output_url) throw new Error('未获得输出图片');
+
+    if (isCancelled) return;
+    currentResultB64 = data.output_url;
+    document.getElementById('resultImg').src = data.output_url;
+    document.getElementById('resultLabel').textContent = 'Toonify · DeepAI';
+    document.getElementById('results').classList.add('show');
+    setStatus('生成完成！', 'success');
+    await saveHistory(originalDataUrl, currentPhotoKey, data.output_url, 'Toonify', 0);
+    resetGeneratingState();
+  } catch (e) {
+    if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
+  }
+}
+
+// ── Google Gemini ──
+async function generateWithGemini() {
+  const apiKey = localStorage.getItem(GEMINI_KEY_K);
+  if (!apiKey) {
+    setStatus('请先输入并保存 Gemini API Key', 'error');
+    resetGeneratingState();
+    return;
+  }
+  const style = STYLES.find(s => s.id === activeStyleId) || STYLES[0];
+  try {
+    setStatus('正在调用 Gemini 生成插画...', 'info');
+    const { base64 } = await resizeForApi(originalDataUrl);
+    if (isCancelled) return;
+
+    const instruction = style.instruction || ('Transform this photo into ' + style.name + ' illustration style: ' + style.prompt.substring(0, 200));
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: 'image/jpeg', data: base64 } },
+              { text: instruction },
+            ],
+          }],
+          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+        }),
+      }
+    );
+
+    if (isCancelled) return;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const imgPart = parts.find(p => p.inlineData?.data || p.inline_data?.data);
+    if (!imgPart) throw new Error('Gemini 未返回图片，请尝试其他风格或稍后重试');
+
+    const imgData = imgPart.inlineData || imgPart.inline_data;
+    const resultUrl = `data:${imgData.mimeType || imgData.mime_type || 'image/png'};base64,${imgData.data}`;
+
+    if (isCancelled) return;
+    currentResultB64 = resultUrl;
+    document.getElementById('resultImg').src = resultUrl;
+    document.getElementById('resultLabel').textContent = style.name + ' · Gemini';
+    document.getElementById('results').classList.add('show');
+    setStatus('生成完成！', 'success');
+    await saveHistory(originalDataUrl, currentPhotoKey, resultUrl, style.name + ' (Gemini)', 0);
+    resetGeneratingState();
+  } catch (e) {
+    if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
+  }
+}
+
+// ── Puter.js ──
+function loadPuterScript() {
+  return new Promise((resolve, reject) => {
+    if (window.puter) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://js.puter.com/v2/';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('无法加载 Puter.js SDK，请检查网络连接'));
+    document.head.appendChild(s);
+  });
+}
+
+async function generateWithPuter() {
+  try {
+    setStatus('正在加载 Puter.js SDK...', 'info');
+    await loadPuterScript();
+    if (isCancelled) return;
+
+    const style = STYLES.find(s => s.id === activeStyleId) || STYLES[0];
+
+    // Step 1: Vision — describe the image
+    setStatus('AI 正在分析图片内容...', 'info');
+    let description = '';
+    try {
+      const visionResp = await puter.ai.chat(
+        [{ role: 'user', content: [
+          { type: 'image_url', image_url: { url: originalDataUrl } },
+          { type: 'text', text: 'In 2 concise sentences, describe the main subject, scene, and key visual elements of this image. Focus on what should appear in an illustration.' },
+        ]}]
+      );
+      description = typeof visionResp === 'string'
+        ? visionResp
+        : visionResp?.message?.content || visionResp?.content || '';
+    } catch (_) { /* proceed without description */ }
+
+    if (isCancelled) return;
+
+    // Step 2: txt2img with style prompt
+    setStatus('正在生成 ' + style.name + ' 风格插画...', 'info');
+    const puterPrompt = style.puterPrompt || style.prompt.substring(0, 300);
+    const fullPrompt = description
+      ? `${puterPrompt}. Scene content: ${description}`
+      : puterPrompt;
+
+    const imgResult = await puter.ai.txt2img(fullPrompt, false);
+    if (isCancelled) return;
+
+    let resultUrl;
+    if (imgResult instanceof HTMLImageElement) {
+      resultUrl = imgResult.src;
+    } else if (typeof imgResult === 'string') {
+      resultUrl = imgResult;
+    } else if (imgResult?.src) {
+      resultUrl = imgResult.src;
+    } else if (imgResult?.url) {
+      resultUrl = imgResult.url;
+    } else {
+      throw new Error('未获得图片结果，请重试');
+    }
+
+    currentResultB64 = resultUrl;
+    document.getElementById('resultImg').src = resultUrl;
+    document.getElementById('resultLabel').textContent = style.name + ' · Puter';
+    document.getElementById('results').classList.add('show');
+    setStatus('生成完成！', 'success');
+    await saveHistory(originalDataUrl, currentPhotoKey, resultUrl, style.name + ' (Puter)', 0);
+    resetGeneratingState();
+  } catch (e) {
+    if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
   }
 }
 
@@ -783,7 +1090,6 @@ async function copyResult() {
   try {
     const blob = await dataUrlToBlob(currentResultB64);
     const fname = 'illustration-' + activeStyleId + '-' + Date.now() + '.jpg';
-    // iOS Safari: use Web Share API (native share sheet supports "Copy Photo")
     if (navigator.share && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
       const file = new File([blob], fname, { type: blob.type });
       await navigator.share({ files: [file] });
@@ -802,7 +1108,6 @@ async function downloadResult() {
   try {
     const blob = await dataUrlToBlob(currentResultB64);
     const fname = 'illustration-' + activeStyleId + '-' + Date.now() + '.jpg';
-    // iOS: use Web Share API with files → share sheet shows "Save Image" to Photos
     const testFile = new File([], 't', { type: 'image/jpeg' });
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [testFile] })) {
       const file = new File([blob], fname, { type: blob.type });
@@ -830,7 +1135,6 @@ function showBtnFeedback(btn, msg, isError) {
 function getHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch(e) { return []; } }
 
 async function saveHistory(origSrc, photoKey, dataUrl, styleName, strengthPct) {
-  // Compress both images to small thumbnails before storing — prevents localStorage quota errors
   const [origThumb, resultThumb] = await Promise.all([
     makeThumbnail(origSrc, 300),
     makeThumbnail(dataUrl, 400),
@@ -838,7 +1142,7 @@ async function saveHistory(origSrc, photoKey, dataUrl, styleName, strengthPct) {
 
   let history = getHistory();
   const idx = history.findIndex(p => p.key === photoKey);
-  const label = styleName + ' · ' + strengthPct + '%';
+  const label = styleName + (strengthPct ? ' · ' + strengthPct + '%' : '');
   const newResult = { img: resultThumb, time: Date.now(), style: styleName, strength: strengthPct, label };
   if (idx !== -1) {
     history[idx].results.unshift(newResult);
@@ -852,7 +1156,6 @@ async function saveHistory(origSrc, photoKey, dataUrl, styleName, strengthPct) {
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
   } catch (e) {
-    // Quota exceeded: drop oldest entry and retry once
     history = history.slice(0, 1);
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch (_) {}
   }
@@ -926,6 +1229,9 @@ function restorePhoto(photoIdx) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ── Initialise ──
+applySiteName(localStorage.getItem(TITLE_KEY) || '');
+selectService(activeService);
 renderHistory();
 </script>
 <script>
