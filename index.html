@@ -482,16 +482,18 @@ function setGenerating(on) {
 
 // ── Portrait detection ──
 function isSkinPixel(r, g, b) {
-  // Uniform HSV/RGB skin tone rule covering light to dark skin
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), diff = mx - mn;
-  if (mx < 40) return false; // too dark/shadow
-  const nr = r / (r + g + b + 1), ng = g / (r + g + b + 1);
-  return r > g && r > b && diff > 10 &&
-         nr > 0.34 && nr < 0.65 && ng > 0.18 && ng < 0.36 && r > 60;
+  // Peer et al. RGB skin rule — filters out ochre/amber/wood by requiring B/G > 0.50
+  return (
+    r > 95 && g > 40 && b > 20 &&
+    Math.max(r, g, b) - Math.min(r, g, b) > 15 &&
+    Math.abs(r - g) > 15 &&
+    r > g && r > b &&
+    b > g * 0.50   // rejects warm golden/ochre/wooden tones (low B relative to G)
+  );
 }
 
 async function detectPortrait(dataUrl) {
-  // Try native FaceDetector API (Chrome / Android)
+  // Try native FaceDetector API (Chrome / Android WebView)
   if ('FaceDetector' in window) {
     try {
       const fd = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
@@ -500,23 +502,37 @@ async function detectPortrait(dataUrl) {
       await new Promise(r => { img.onload = r; });
       const faces = await fd.detect(img);
       if (faces.length > 0) return true;
-    } catch (_) { /* not supported or blocked */ }
+    } catch (_) {}
   }
-  // Fallback: canvas skin-tone analysis on a 160px thumbnail
+  // Fallback: canvas skin-tone analysis with face-zone concentration check
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      const scale = Math.min(1, 160 / Math.max(img.width, img.height));
+      const scale = Math.min(1, 180 / Math.max(img.width, img.height));
       const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
       const c = document.createElement('canvas');
       c.width = w; c.height = h;
       c.getContext('2d').drawImage(img, 0, 0, w, h);
       const data = c.getContext('2d').getImageData(0, 0, w, h).data;
-      let skin = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        if (isSkinPixel(data[i], data[i+1], data[i+2])) skin++;
+
+      // Face zone: center 60% width × top 85% height (where faces typically appear)
+      const fxMin = w * 0.20, fxMax = w * 0.80, fyMax = h * 0.85;
+      let skinTotal = 0, skinInZone = 0;
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          if (isSkinPixel(data[i], data[i + 1], data[i + 2])) {
+            skinTotal++;
+            if (x >= fxMin && x < fxMax && y < fyMax) skinInZone++;
+          }
+        }
       }
-      resolve(skin / (w * h) > 0.10); // >10% skin tone pixels → portrait
+
+      const skinRatio  = skinTotal / (w * h);
+      const zoneConc   = skinTotal > 0 ? skinInZone / skinTotal : 0;
+      // Portrait: >15% skin pixels AND >55% of them concentrated in face zone
+      resolve(skinRatio > 0.15 && zoneConc > 0.55);
     };
     img.src = dataUrl;
   });
