@@ -34,6 +34,22 @@
   header h1 em { font-style: italic; color: var(--ochre); }
   .header-sub { font-family: 'Lora', serif; font-style: italic; font-size: clamp(0.7rem,2vw,0.9rem); color: #a8b8c8; margin-top: 8px; letter-spacing: 0; }
   .header-rule { width: 80px; height: 2px; background: linear-gradient(90deg, transparent, var(--ochre), transparent); margin: 14px auto 0; }
+  .h1-wrap { display: inline-flex; align-items: center; gap: 10px; }
+  .edit-name-btn { background: none; border: none; cursor: pointer; color: var(--ochre); opacity: 0.5; padding: 2px; line-height: 0; transition: opacity 0.2s; }
+  .edit-name-btn:hover { opacity: 1; }
+  .edit-name-btn svg { width: clamp(12px,2vw,16px); height: clamp(12px,2vw,16px); }
+  .edit-name-modal { display: none; position: fixed; inset: 0; background: rgba(10,20,40,0.7); z-index: 100; align-items: center; justify-content: center; }
+  .edit-name-modal.open { display: flex; }
+  .edit-name-box { background: var(--parchment); border-radius: 6px; padding: 28px 32px; width: min(90vw, 420px); box-shadow: 0 8px 40px rgba(0,0,0,0.4); }
+  .edit-name-box label { font-family: 'Playfair Display', serif; font-size: 0.75rem; letter-spacing: 3px; color: var(--ochre-dark); text-transform: uppercase; display: block; margin-bottom: 10px; }
+  .edit-name-box input { width: 100%; border: 1.5px solid #d4b896; border-radius: 4px; padding: 10px 14px; font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--ink); background: #fff; outline: none; }
+  .edit-name-box input:focus { border-color: var(--ochre); }
+  .edit-name-actions { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+  .edit-name-actions button { font-family: 'Playfair Display', serif; font-size: 0.8rem; letter-spacing: 1.5px; text-transform: uppercase; border: none; border-radius: 4px; padding: 9px 20px; cursor: pointer; }
+  .btn-save-name { background: var(--blue-deep); color: var(--parchment); }
+  .btn-save-name:hover { background: var(--ochre-dark); }
+  .btn-cancel-name { background: transparent; color: #9a8060; border: 1px solid #d4b896 !important; }
+  .btn-reset-name { background: transparent; color: var(--terracotta); font-size: 0.72rem !important; margin-right: auto; }
   .header-wash { height: 6px; background: linear-gradient(90deg, var(--terracotta) 0%, var(--ochre) 30%, var(--blue-mid) 60%, var(--sage) 100%); opacity: 0.85; }
 
   main { max-width: 900px; margin: 44px auto; padding: 0 22px 60px; }
@@ -166,10 +182,28 @@
 </head>
 <body>
 
+<!-- Edit name modal -->
+<div class="edit-name-modal" id="editNameModal" onclick="if(event.target===this)closeEditName()">
+  <div class="edit-name-box">
+    <label>自定义网站名称</label>
+    <input type="text" id="editNameInput" maxlength="40" placeholder="Illustration Style Generator" onkeydown="if(event.key==='Enter')saveSiteName();if(event.key==='Escape')closeEditName()">
+    <div class="edit-name-actions">
+      <button class="btn-reset-name" onclick="resetSiteName()">恢复默认</button>
+      <button class="btn-cancel-name" onclick="closeEditName()">取消</button>
+      <button class="btn-save-name" onclick="saveSiteName()">保存</button>
+    </div>
+  </div>
+</div>
+
 <header>
   <div class="header-inner">
     <span class="header-ornament">✦ ATELIER D'ILLUSTRATION ✦</span>
-    <h1>Illustration <em>Style</em> Generator</h1>
+    <h1 class="h1-wrap">
+      <span id="siteTitle">Illustration <em>Style</em> Generator</span>
+      <button class="edit-name-btn" onclick="openEditName()" title="自定义名称">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H7v-3a2 2 0 01.586-1.414z"/></svg>
+      </button>
+    </h1>
     <p class="header-sub">将您的照片转化为各种主流插画风格</p>
     <div class="header-rule"></div>
   </div>
@@ -258,7 +292,7 @@
   </div>
 </main>
 
-<footer>Illustration Style Generator · Powered by Stable Horde</footer>
+<footer id="siteFooter">Illustration Style Generator · Powered by Stable Horde</footer>
 
 <script>
 const STYLES = [
@@ -373,6 +407,49 @@ let isPortrait       = false;  // ← portrait detection result
 const HORDE_BASE  = 'https://stablehorde.net/api/v2';
 const HORDE_KEY   = 'zIeAXOrrSLBTkgKiNiDzjQ';
 const HISTORY_KEY = 'herem_history_v3';
+
+// ── Site name customisation ──
+const DEFAULT_TITLE = 'Illustration Style Generator';
+const TITLE_KEY = 'herem_site_title';
+
+function applySiteName(name) {
+  const display = name || DEFAULT_TITLE;
+  // Header: preserve <em> on second word if default-like
+  const parts = display.split(' ');
+  let h1html;
+  if (parts.length >= 2) {
+    h1html = parts[0] + ' <em>' + parts[1] + '</em>' + (parts.length > 2 ? ' ' + parts.slice(2).join(' ') : '');
+  } else {
+    h1html = display;
+  }
+  document.getElementById('siteTitle').innerHTML = h1html;
+  document.title = display;
+  document.getElementById('siteFooter').textContent = display + ' · Powered by Stable Horde';
+}
+
+function openEditName() {
+  const saved = localStorage.getItem(TITLE_KEY) || '';
+  document.getElementById('editNameInput').value = saved;
+  document.getElementById('editNameModal').classList.add('open');
+  setTimeout(() => document.getElementById('editNameInput').focus(), 50);
+}
+function closeEditName() {
+  document.getElementById('editNameModal').classList.remove('open');
+}
+function saveSiteName() {
+  const val = document.getElementById('editNameInput').value.trim();
+  if (val) { localStorage.setItem(TITLE_KEY, val); applySiteName(val); }
+  else { resetSiteName(); }
+  closeEditName();
+}
+function resetSiteName() {
+  localStorage.removeItem(TITLE_KEY);
+  applySiteName('');
+  document.getElementById('editNameInput').value = '';
+  closeEditName();
+}
+// Apply on load
+applySiteName(localStorage.getItem(TITLE_KEY) || '');
 
 // ── Style grid ──
 function buildStyleGrid() {
