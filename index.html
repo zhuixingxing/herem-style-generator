@@ -175,6 +175,39 @@
   @media (max-width: 480px) { .result-actions { grid-template-columns: 1fr 1fr; } .action-btn { padding: 9px 4px; font-size: 0.65rem; letter-spacing: 0.5px; gap: 3px; } }
   @media (max-width: 420px) { .style-grid { grid-template-columns: repeat(2, 1fr); } .btn-row { flex-direction: column; } .cancel-btn { text-align: center; } }
 
+  /* ── Service selector ── */
+  .service-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 28px; }
+  .service-card { border: 1.5px solid #d4b896; border-radius: 6px; padding: 14px 8px 12px; cursor: pointer; text-align: center; background: rgba(255,255,255,0.5); transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s; position: relative; }
+  .service-card:hover { border-color: var(--ochre); transform: translateY(-2px); box-shadow: 0 3px 10px rgba(43,29,14,0.1); }
+  .service-card.active { border-color: var(--ochre); border-width: 2px; box-shadow: 0 0 0 2px rgba(193,127,36,0.2); }
+  .service-card.active .service-check { display: block; }
+  .service-check { display: none; position: absolute; top: 5px; right: 6px; font-size: 0.6rem; color: var(--ochre-dark); font-weight: bold; background: rgba(245,237,224,0.9); border-radius: 50%; width: 14px; height: 14px; line-height: 14px; text-align: center; }
+  .service-icon { font-size: 1.6rem; margin-bottom: 6px; }
+  .service-name { font-family: 'Playfair Display', serif; font-size: 0.68rem; font-weight: 700; color: var(--ink); display: block; letter-spacing: 0.3px; }
+  .service-sub  { font-family: 'Lora', serif; font-style: italic; font-size: 0.58rem; color: #9a8060; display: block; margin-top: 2px; }
+  .service-badge { display: inline-block; margin-top: 5px; font-size: 0.52rem; font-family: 'Lora', serif; padding: 1px 6px; border-radius: 10px; background: rgba(107,124,92,0.12); color: var(--sage); border: 1px solid rgba(107,124,92,0.3); }
+  .service-badge.warn { background: rgba(184,92,56,0.1); color: var(--terracotta); border-color: rgba(184,92,56,0.3); }
+  @media (max-width: 480px) { .service-grid { grid-template-columns: repeat(2,1fr); } }
+
+  /* ── External service panel ── */
+  .ext-panel { display: none; background: rgba(255,255,255,0.5); border: 1px solid #d4b896; border-radius: 6px; padding: 24px 24px 20px; }
+  .ext-panel.show { display: block; }
+  .ext-panel-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .ext-panel-icon { font-size: 2.2rem; line-height: 1; }
+  .ext-panel-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: var(--ink); }
+  .ext-panel-feature { font-family: 'Lora', serif; font-style: italic; font-size: 0.82rem; color: #9a8060; margin-top: 2px; }
+  .ext-steps { margin: 0 0 20px; padding: 0; list-style: none; counter-reset: steps; }
+  .ext-steps li { counter-increment: steps; display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 1px solid #ede0cc; font-family: 'Lora', serif; font-size: 0.85rem; color: var(--ink); line-height: 1.5; }
+  .ext-steps li:last-child { border-bottom: none; }
+  .ext-steps li::before { content: counter(steps); min-width: 20px; height: 20px; border-radius: 50%; background: var(--ochre); color: var(--parchment); font-family: 'Playfair Display', serif; font-size: 0.65rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .ext-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .ext-btn { display: inline-flex; align-items: center; gap: 6px; padding: 11px 20px; border-radius: 4px; font-family: 'Playfair Display', serif; font-size: 0.78rem; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; border: none; transition: background 0.2s; }
+  .ext-btn-primary { background: var(--blue-deep); color: var(--parchment); }
+  .ext-btn-primary:hover { background: var(--ochre-dark); }
+  .ext-btn-secondary { background: rgba(255,255,255,0.8); color: var(--blue-deep); border: 1.5px solid #d4b896 !important; }
+  .ext-btn-secondary:hover { border-color: var(--ochre) !important; }
+  .ext-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
   .portrait-badge { display: none; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 14px; background: rgba(30,58,95,0.08); border: 1px solid rgba(30,58,95,0.2); border-radius: 20px; font-family: 'Playfair Display', serif; font-size: 0.72rem; color: var(--blue-deep); letter-spacing: 1px; }
   .portrait-badge.show { display: inline-flex; }
   .portrait-badge svg { width: 13px; height: 13px; flex-shrink: 0; }
@@ -240,24 +273,50 @@
     </span>
   </div>
 
-  <div class="section-label" style="margin-top:32px">选择插画风格</div>
-  <div class="style-grid" id="styleGrid"></div>
+  <div class="section-label" style="margin-top:32px">选择处理方式</div>
+  <div class="service-grid" id="serviceGrid"></div>
 
-  <div class="controls">
-    <label>风格强度
-      <span>保持画面内容与构图不变，仅调整插画风格渲染程度</span>
-    </label>
-    <div class="slider-row">
-      <input type="range" id="strength" min="30" max="70" value="50">
-      <span class="slider-val" id="strengthVal">50%</span>
+  <!-- Stable Horde section -->
+  <div id="hordeSection">
+    <div class="section-label">选择插画风格</div>
+    <div class="style-grid" id="styleGrid"></div>
+    <div class="controls">
+      <label>风格强度
+        <span>保持画面内容与构图不变，仅调整插画风格渲染程度</span>
+      </label>
+      <div class="slider-row">
+        <input type="range" id="strength" min="30" max="70" value="50">
+        <span class="slider-val" id="strengthVal">50%</span>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="generateBtn" disabled>生成插画</button>
+      <button class="cancel-btn" id="cancelBtn" onclick="cancelGeneration()">取消</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <!-- External service panel -->
+  <div class="ext-panel" id="extPanel">
+    <div class="ext-panel-header">
+      <div class="ext-panel-icon" id="extIcon"></div>
+      <div>
+        <div class="ext-panel-title" id="extTitle"></div>
+        <div class="ext-panel-feature" id="extFeature"></div>
+      </div>
+    </div>
+    <ol class="ext-steps" id="extSteps"></ol>
+    <div class="ext-actions">
+      <button class="ext-btn ext-btn-primary" id="extDownloadBtn" onclick="extDownload()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        下载图片
+      </button>
+      <button class="ext-btn ext-btn-secondary" id="extOpenBtn" onclick="extOpen()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        打开服务
+      </button>
     </div>
   </div>
-
-  <div class="btn-row">
-    <button class="btn" id="generateBtn" disabled>生成插画</button>
-    <button class="cancel-btn" id="cancelBtn" onclick="cancelGeneration()">取消</button>
-  </div>
-  <div class="status" id="status"></div>
 
   <div class="results" id="results">
     <div class="result-panel">
@@ -450,6 +509,101 @@ function resetSiteName() {
 }
 // Apply on load
 applySiteName(localStorage.getItem(TITLE_KEY) || '');
+
+// ── External services ──
+const EXT_SERVICES = [
+  {
+    id: 'horde', name: 'Stable Horde', sub: 'AI 风格迁移', icon: '🤖',
+    badge: '免费·无需上网', badgeWarn: false, external: false,
+  },
+  {
+    id: 'xingtu', name: '醒图', sub: '漫画功能', icon: '🎨',
+    badge: '国内可用', badgeWarn: false, external: true,
+    url: 'https://www.xingtu.cn/',
+    feature: '风格化 → 漫画',
+    steps: [
+      '点击下方「下载图片」保存照片到本地',
+      '打开醒图 App（或访问 xingtu.cn 网页版）',
+      '上传刚才保存的照片',
+      '点击底部「风格化」，选择「漫画」',
+      '调整效果强度后保存',
+    ],
+  },
+  {
+    id: 'picsart', name: 'PicsArt', sub: 'Cartoon 滤镜', icon: '🖼️',
+    badge: '国内可用', badgeWarn: false, external: true,
+    url: 'https://picsart.com/photo-editor',
+    feature: 'Effects → Cartoonizer',
+    steps: [
+      '点击下方「下载图片」保存照片到本地',
+      '打开 PicsArt App 或访问 picsart.com 网页版',
+      '上传刚才保存的照片',
+      '点击 Effects，搜索或找到「Cartoon」分类',
+      '选择 Cartoonizer 效果，调整强度后保存',
+    ],
+  },
+  {
+    id: 'prisma', name: 'Prisma', sub: '艺术化滤镜', icon: '✨',
+    badge: '需科学上网', badgeWarn: true, external: true,
+    url: 'https://prisma-ai.com/prisma',
+    feature: '艺术风格滤镜',
+    steps: [
+      '确认已开启科学上网',
+      '点击下方「下载图片」保存照片到本地',
+      '打开 Prisma App 或访问 prisma-ai.com',
+      '上传刚才保存的照片',
+      '浏览并选择喜欢的艺术风格，点击应用后保存',
+    ],
+  },
+];
+
+let activeServiceId = 'horde';
+
+function buildServiceGrid() {
+  document.getElementById('serviceGrid').innerHTML = EXT_SERVICES.map(s => `
+    <div class="service-card ${s.id === activeServiceId ? 'active' : ''}" onclick="selectService('${s.id}')" id="svc-${s.id}">
+      <div class="service-check">✓</div>
+      <div class="service-icon">${s.icon}</div>
+      <span class="service-name">${s.name}</span>
+      <span class="service-sub">${s.sub}</span>
+      <span class="service-badge${s.badgeWarn ? ' warn' : ''}">${s.badge}</span>
+    </div>`).join('');
+}
+
+function selectService(id) {
+  activeServiceId = id;
+  document.querySelectorAll('.service-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('svc-' + id).classList.add('active');
+  const svc = EXT_SERVICES.find(s => s.id === id);
+  const isHorde = !svc.external;
+  document.getElementById('hordeSection').style.display = isHorde ? '' : 'none';
+  const panel = document.getElementById('extPanel');
+  if (!isHorde) {
+    document.getElementById('extIcon').textContent    = svc.icon;
+    document.getElementById('extTitle').textContent   = svc.name;
+    document.getElementById('extFeature').textContent = '使用功能：' + svc.feature;
+    document.getElementById('extSteps').innerHTML = svc.steps.map(s => `<li>${s}</li>`).join('');
+    document.getElementById('extOpenBtn').dataset.url = svc.url;
+    panel.classList.add('show');
+  } else {
+    panel.classList.remove('show');
+  }
+}
+
+function extDownload() {
+  if (!originalDataUrl) { alert('请先上传照片'); return; }
+  const a = document.createElement('a');
+  a.href = originalDataUrl;
+  a.download = 'photo-' + Date.now() + '.jpg';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function extOpen() {
+  const url = document.getElementById('extOpenBtn').dataset.url;
+  if (url) window.open(url, '_blank');
+}
+
+buildServiceGrid();
 
 // ── Style grid ──
 function buildStyleGrid() {
