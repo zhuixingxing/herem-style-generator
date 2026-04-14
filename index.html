@@ -252,7 +252,6 @@
   <div class="section-label" style="margin-top:32px">选择生成服务</div>
   <div class="service-tabs" id="serviceTabs">
     <button class="svc-tab" data-svc="horde" onclick="selectService('horde')">Stable Horde</button>
-    <button class="svc-tab" data-svc="deepai" onclick="selectService('deepai')">DeepAI</button>
     <button class="svc-tab" data-svc="puter" onclick="selectService('puter')">Puter.js</button>
   </div>
 
@@ -429,12 +428,6 @@ const STYLES = [
   },
 ];
 
-// DeepAI has a single cartoon-style endpoint
-const DEEPAI_STYLE = {
-  id: 'toonify', name: 'Toonify', sub: '照片卡通化',
-  swatch: 'linear-gradient(90deg,#ff6b6b,#feca57)',
-};
-
 // ── State ──
 let activeStyleId    = 'herem';
 let activeService    = localStorage.getItem('herem_service') || 'horde';
@@ -449,13 +442,12 @@ let isPortrait       = false;
 
 const HORDE_BASE   = 'https://stablehorde.net/api/v2';
 const HORDE_KEY    = 'zIeAXOrrSLBTkgKiNiDzjQ';
-const DEEPAI_KEY   = '7abac187-a464-4582-8e05-b75d79e9849a';
 const HISTORY_KEY  = 'herem_history_v3';
 
 // ── Site name ──
 const DEFAULT_TITLE = 'Illustration Style Generator';
 const TITLE_KEY = 'herem_site_title';
-const SVC_NAMES = { horde: 'Stable Horde', deepai: 'DeepAI', puter: 'Puter.js' };
+const SVC_NAMES = { horde: 'Stable Horde', puter: 'Puter.js' };
 
 function applySiteName(name) {
   const display = name || DEFAULT_TITLE;
@@ -502,12 +494,6 @@ function selectService(svcId) {
     t.classList.toggle('active', t.dataset.svc === svcId)
   );
 
-  // Reset activeStyleId when switching to/from DeepAI
-  if (svcId === 'deepai') {
-    activeStyleId = 'toonify';
-  } else if (activeStyleId === 'toonify') {
-    activeStyleId = STYLES[0].id;
-  }
 
   updateApikeyArea();
   buildStyleGrid();
@@ -522,10 +508,7 @@ function updateApikeyArea() {
 
   area.classList.remove('show');
 
-  if (activeService === 'deepai') {
-    note.textContent = 'DeepAI 仅支持 Toonify 卡通化风格转换，风格强度滑块无效。';
-    note.style.display = 'block';
-  } else if (activeService === 'puter') {
+  if (activeService === 'puter') {
     note.textContent = 'Puter.js 完全免费，无需 API Key。首次使用需注册/登录 Puter 账号（弹窗引导），之后分两步：AI 分析图片内容 → 按风格重新生成插画。';
     note.style.display = 'block';
   } else {
@@ -535,7 +518,7 @@ function updateApikeyArea() {
 
 // ── Style grid ──
 function buildStyleGrid() {
-  const styles = activeService === 'deepai' ? [DEEPAI_STYLE] : STYLES;
+  const styles = STYLES;
   document.getElementById('styleGrid').innerHTML = styles.map(s => `
     <div class="style-card ${s.id === activeStyleId ? 'active' : ''}" onclick="selectStyle('${s.id}')" id="card-${s.id}">
       <div class="style-check">✓</div>
@@ -552,7 +535,7 @@ function selectStyle(id) {
   document.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
   const card = document.getElementById('card-' + id);
   if (card) card.classList.add('active');
-  const style = activeService === 'deepai' ? DEEPAI_STYLE : STYLES.find(s => s.id === id);
+  const style = STYLES.find(s => s.id === id);
   if (style) document.getElementById('resultLabel').textContent = style.name + ' Style';
 }
 
@@ -729,8 +712,6 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
   if (activeService === 'horde') {
     await generateWithHorde();
-  } else if (activeService === 'deepai') {
-    await generateWithDeepAI();
   } else if (activeService === 'puter') {
     await generateWithPuter();
   }
@@ -833,38 +814,6 @@ async function pollStatus(jobId, styleName, strengthPct) {
   }
 }
 
-// ── DeepAI ──
-async function generateWithDeepAI() {
-  try {
-    setStatus('正在提交到 DeepAI Toonify...', 'info');
-    const blob = await dataUrlToBlob(originalDataUrl);
-    const formData = new FormData();
-    formData.append('image', blob, 'image.jpg');
-
-    const res = await fetch('https://api.deepai.org/api/toonify', {
-      method: 'POST',
-      headers: { 'api-key': DEEPAI_KEY },
-      body: formData,
-    });
-
-    if (isCancelled) return;
-    if (!res.ok) throw new Error('DeepAI 请求失败 ' + res.status);
-    const data = await res.json();
-    if (data.err) throw new Error(data.err);
-    if (!data.output_url) throw new Error('未获得输出图片');
-
-    if (isCancelled) return;
-    currentResultB64 = data.output_url;
-    document.getElementById('resultImg').src = data.output_url;
-    document.getElementById('resultLabel').textContent = 'Toonify · DeepAI';
-    document.getElementById('results').classList.add('show');
-    setStatus('生成完成！', 'success');
-    await saveHistory(originalDataUrl, currentPhotoKey, data.output_url, 'Toonify', 0);
-    resetGeneratingState();
-  } catch (e) {
-    if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
-  }
-}
 
 // ── Puter.js ──
 function loadPuterScript() {
