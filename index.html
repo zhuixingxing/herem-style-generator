@@ -503,10 +503,7 @@ function selectService(svcId) {
 }
 
 function updateApikeyArea() {
-  const area = document.getElementById('apikeyArea');
   const note = document.getElementById('svcNote');
-
-  area.classList.remove('show');
 
   if (activeService === 'puter') {
     note.textContent = 'Puter.js 完全免费，无需 API Key。首次使用需注册/登录 Puter 账号（弹窗引导），之后分两步：AI 分析图片内容 → 按风格重新生成插画。';
