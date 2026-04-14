@@ -83,18 +83,6 @@
   .svc-tab.active { background: var(--blue-deep); color: var(--parchment); border-color: var(--blue-deep); }
   .svc-tab:hover:not(.active) { border-color: var(--ochre); color: var(--ochre-dark); }
 
-  /* ── API key area ── */
-  .apikey-area { display: none; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(30,58,95,0.06); border: 1px solid rgba(30,58,95,0.2); border-radius: 4px; padding: 12px 16px; margin-bottom: 14px; }
-  .apikey-area.show { display: flex; }
-  .apikey-area-label { font-family: 'Playfair Display', serif; font-size: 0.7rem; letter-spacing: 1px; color: var(--blue-deep); white-space: nowrap; }
-  .apikey-input { flex: 1; min-width: 160px; border: 1px solid #d4b896; border-radius: 3px; padding: 6px 10px; font-family: 'Lora', serif; font-size: 0.82rem; color: var(--ink); background: #fff; outline: none; }
-  .apikey-input:focus { border-color: var(--ochre); }
-  .apikey-save-btn { font-family: 'Playfair Display', serif; font-size: 0.67rem; letter-spacing: 1px; text-transform: uppercase; padding: 7px 14px; background: var(--blue-deep); color: var(--parchment); border: none; border-radius: 3px; cursor: pointer; white-space: nowrap; }
-  .apikey-save-btn:hover { background: var(--ochre-dark); }
-  .apikey-link { font-family: 'Lora', serif; font-style: italic; font-size: 0.72rem; color: var(--blue-mid); text-decoration: none; }
-  .apikey-link:hover { text-decoration: underline; }
-  .apikey-ok { font-family: 'Lora', serif; font-style: italic; font-size: 0.72rem; color: var(--sage); }
-
   /* ── Service note ── */
   .svc-note { font-family: 'Lora', serif; font-style: italic; font-size: 0.78rem; color: #7a6048; text-align: center; margin-bottom: 14px; padding: 10px 16px; background: rgba(255,255,255,0.4); border: 1px dashed #d4b896; border-radius: 4px; line-height: 1.6; display: none; }
 
@@ -265,18 +253,7 @@
   <div class="service-tabs" id="serviceTabs">
     <button class="svc-tab" data-svc="horde" onclick="selectService('horde')">Stable Horde</button>
     <button class="svc-tab" data-svc="deepai" onclick="selectService('deepai')">DeepAI</button>
-    <button class="svc-tab" data-svc="gemini" onclick="selectService('gemini')">Gemini</button>
     <button class="svc-tab" data-svc="puter" onclick="selectService('puter')">Puter.js</button>
-  </div>
-
-  <!-- API key area (DeepAI / Gemini) -->
-  <div class="apikey-area" id="apikeyArea">
-    <span class="apikey-area-label" id="apikeyLabel">API Key：</span>
-    <input class="apikey-input" type="password" id="apikeyInput" placeholder="粘贴 API Key…"
-      onkeydown="if(event.key==='Enter')saveServiceKey()">
-    <button class="apikey-save-btn" onclick="saveServiceKey()">保存</button>
-    <a class="apikey-link" id="apikeyLink" href="#" target="_blank" rel="noopener">免费获取 Key ↗</a>
-    <span class="apikey-ok" id="apikeyOk">✓ 已设置</span>
   </div>
 
   <!-- Service-specific hint -->
@@ -472,14 +449,13 @@ let isPortrait       = false;
 
 const HORDE_BASE   = 'https://stablehorde.net/api/v2';
 const HORDE_KEY    = 'zIeAXOrrSLBTkgKiNiDzjQ';
+const DEEPAI_KEY   = '7abac187-a464-4582-8e05-b75d79e9849a';
 const HISTORY_KEY  = 'herem_history_v3';
-const DEEPAI_KEY_K = 'herem_deepai_key';
-const GEMINI_KEY_K = 'herem_gemini_key';
 
 // ── Site name ──
 const DEFAULT_TITLE = 'Illustration Style Generator';
 const TITLE_KEY = 'herem_site_title';
-const SVC_NAMES = { horde: 'Stable Horde', deepai: 'DeepAI', gemini: 'Google Gemini', puter: 'Puter.js' };
+const SVC_NAMES = { horde: 'Stable Horde', deepai: 'DeepAI', puter: 'Puter.js' };
 
 function applySiteName(name) {
   const display = name || DEFAULT_TITLE;
@@ -541,56 +517,20 @@ function selectService(svcId) {
 }
 
 function updateApikeyArea() {
-  const area   = document.getElementById('apikeyArea');
-  const label  = document.getElementById('apikeyLabel');
-  const link   = document.getElementById('apikeyLink');
-  const okEl   = document.getElementById('apikeyOk');
-  const input  = document.getElementById('apikeyInput');
-  const note   = document.getElementById('svcNote');
+  const area = document.getElementById('apikeyArea');
+  const note = document.getElementById('svcNote');
 
-  okEl.style.display = 'none';
+  area.classList.remove('show');
 
   if (activeService === 'deepai') {
-    area.classList.add('show');
-    label.textContent = 'DeepAI API Key：';
-    link.href = 'https://deepai.org';
-    link.textContent = '免费注册获取 ↗';
-    const key = localStorage.getItem(DEEPAI_KEY_K) || '';
-    input.value = key ? '••••••••' : '';
-    input.placeholder = '粘贴 DeepAI API Key…';
-    if (key) { okEl.style.display = 'inline'; }
     note.textContent = 'DeepAI 仅支持 Toonify 卡通化风格转换，风格强度滑块无效。';
     note.style.display = 'block';
-  } else if (activeService === 'gemini') {
-    area.classList.add('show');
-    label.textContent = 'Gemini API Key：';
-    link.href = 'https://aistudio.google.com/';
-    link.textContent = '免费获取 Key ↗';
-    const key = localStorage.getItem(GEMINI_KEY_K) || '';
-    input.value = key ? '••••••••' : '';
-    input.placeholder = '粘贴 Google AI Studio Key…';
-    if (key) { okEl.style.display = 'inline'; }
-    note.textContent = 'Gemini 2.0 Flash 图像生成，500 次/天免费额度。支持所有风格，通过自然语言指令引导风格转换。';
-    note.style.display = 'block';
   } else if (activeService === 'puter') {
-    area.classList.remove('show');
     note.textContent = 'Puter.js 完全免费，无需 API Key。首次使用需注册/登录 Puter 账号（弹窗引导），之后分两步：AI 分析图片内容 → 按风格重新生成插画。';
     note.style.display = 'block';
   } else {
-    area.classList.remove('show');
     note.style.display = 'none';
   }
-}
-
-function saveServiceKey() {
-  const val = document.getElementById('apikeyInput').value.trim();
-  if (!val || val === '••••••••') return;
-  if (activeService === 'deepai') localStorage.setItem(DEEPAI_KEY_K, val);
-  else if (activeService === 'gemini') localStorage.setItem(GEMINI_KEY_K, val);
-  const okEl = document.getElementById('apikeyOk');
-  okEl.style.display = 'inline';
-  okEl.textContent = '✓ 已保存';
-  document.getElementById('apikeyInput').value = '••••••••';
 }
 
 // ── Style grid ──
@@ -791,8 +731,6 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     await generateWithHorde();
   } else if (activeService === 'deepai') {
     await generateWithDeepAI();
-  } else if (activeService === 'gemini') {
-    await generateWithGemini();
   } else if (activeService === 'puter') {
     await generateWithPuter();
   }
@@ -897,12 +835,6 @@ async function pollStatus(jobId, styleName, strengthPct) {
 
 // ── DeepAI ──
 async function generateWithDeepAI() {
-  const apiKey = localStorage.getItem(DEEPAI_KEY_K);
-  if (!apiKey) {
-    setStatus('请先输入并保存 DeepAI API Key', 'error');
-    resetGeneratingState();
-    return;
-  }
   try {
     setStatus('正在提交到 DeepAI Toonify...', 'info');
     const blob = await dataUrlToBlob(originalDataUrl);
@@ -911,7 +843,7 @@ async function generateWithDeepAI() {
 
     const res = await fetch('https://api.deepai.org/api/toonify', {
       method: 'POST',
-      headers: { 'api-key': apiKey },
+      headers: { 'api-key': DEEPAI_KEY },
       body: formData,
     });
 
@@ -928,65 +860,6 @@ async function generateWithDeepAI() {
     document.getElementById('results').classList.add('show');
     setStatus('生成完成！', 'success');
     await saveHistory(originalDataUrl, currentPhotoKey, data.output_url, 'Toonify', 0);
-    resetGeneratingState();
-  } catch (e) {
-    if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
-  }
-}
-
-// ── Google Gemini ──
-async function generateWithGemini() {
-  const apiKey = localStorage.getItem(GEMINI_KEY_K);
-  if (!apiKey) {
-    setStatus('请先输入并保存 Gemini API Key', 'error');
-    resetGeneratingState();
-    return;
-  }
-  const style = STYLES.find(s => s.id === activeStyleId) || STYLES[0];
-  try {
-    setStatus('正在调用 Gemini 生成插画...', 'info');
-    const { base64 } = await resizeForApi(originalDataUrl);
-    if (isCancelled) return;
-
-    const instruction = style.instruction || ('Transform this photo into ' + style.name + ' illustration style: ' + style.prompt.substring(0, 200));
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: 'image/jpeg', data: base64 } },
-              { text: instruction },
-            ],
-          }],
-          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
-        }),
-      }
-    );
-
-    if (isCancelled) return;
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    const imgPart = parts.find(p => p.inlineData?.data || p.inline_data?.data);
-    if (!imgPart) throw new Error('Gemini 未返回图片，请尝试其他风格或稍后重试');
-
-    const imgData = imgPart.inlineData || imgPart.inline_data;
-    const resultUrl = `data:${imgData.mimeType || imgData.mime_type || 'image/png'};base64,${imgData.data}`;
-
-    if (isCancelled) return;
-    currentResultB64 = resultUrl;
-    document.getElementById('resultImg').src = resultUrl;
-    document.getElementById('resultLabel').textContent = style.name + ' · Gemini';
-    document.getElementById('results').classList.add('show');
-    setStatus('生成完成！', 'success');
-    await saveHistory(originalDataUrl, currentPhotoKey, resultUrl, style.name + ' (Gemini)', 0);
     resetGeneratingState();
   } catch (e) {
     if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
