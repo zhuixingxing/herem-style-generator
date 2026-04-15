@@ -526,13 +526,27 @@ function selectService(svcId) {
 function updateApikeyArea() {
   const note     = document.getElementById('svcNote');
   const controls = document.getElementById('controlsBox');
-
-  controls.style.display = activeService === 'horde' ? '' : 'none';
+  const slider   = document.getElementById('strength');
+  const sliderVal = document.getElementById('strengthVal');
 
   if (activeService === 'portrait') {
+    controls.style.display = '';
+    slider.min = 20; slider.max = 100;
+    if (+slider.value < 20 || +slider.value > 100) slider.value = 80;
+    sliderVal.textContent = slider.value + '%';
     note.textContent = '基于 AnimeGANv2（HuggingFace Space），专为人像照片优化的动漫风格转换，完全免费无需 Key。首次调用可能需要等待模型唤醒（约 10 秒）。';
     note.style.display = 'block';
-  } else if (activeService === 'puter') {
+  } else if (activeService === 'horde') {
+    controls.style.display = '';
+    slider.min = 30; slider.max = 70;
+    if (+slider.value < 30 || +slider.value > 70) slider.value = 50;
+    sliderVal.textContent = slider.value + '%';
+    note.style.display = 'none';
+  } else {
+    controls.style.display = 'none';
+  }
+
+  if (activeService === 'puter') {
     note.textContent = 'Puter.js 完全免费，无需 API Key。首次使用需注册/登录 Puter 账号（弹窗引导），之后分两步：AI 分析图片内容 → 按风格重新生成插画。';
     note.style.display = 'block';
   } else {
@@ -753,7 +767,32 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   }
 });
 
-// ── Portrait (Stable Horde anime models) ──
+// ── Portrait helpers ──
+function blendImages(origUrl, styledUrl, strength) {
+  // strength: 0=pure original, 1=pure styled
+  return new Promise(resolve => {
+    const styled = new Image();
+    styled.onload = () => {
+      const orig = new Image();
+      orig.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = styled.width; c.height = styled.height;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(orig, 0, 0, c.width, c.height);
+        ctx.globalAlpha = strength;
+        ctx.drawImage(styled, 0, 0);
+        ctx.globalAlpha = 1;
+        resolve(c.toDataURL('image/jpeg', 0.92));
+      };
+      orig.onerror = () => resolve(styledUrl);
+      orig.src = origUrl;
+    };
+    styled.onerror = () => resolve(styledUrl);
+    styled.src = styledUrl;
+  });
+}
+
+// ── Portrait (AnimeGANv2 via HuggingFace Space) ──
 async function generateWithPortrait() {
   const style = PORTRAIT_STYLES.find(s => s.id === activeStyleId) || PORTRAIT_STYLES[0];
   try {
@@ -828,12 +867,21 @@ async function generateWithPortrait() {
     } catch (_) {}
 
     if (isCancelled) return;
+
+    // Apply style strength blending (client-side: blend original + anime output)
+    const strengthPct = parseInt(document.getElementById('strength').value);
+    if (strengthPct < 100) {
+      setStatus('正在混合风格强度...', 'info');
+      finalUrl = await blendImages(originalDataUrl, finalUrl, strengthPct / 100);
+    }
+
+    if (isCancelled) return;
     currentResultB64 = finalUrl;
     document.getElementById('resultImg').src = finalUrl;
-    document.getElementById('resultLabel').textContent = style.name + ' · AnimeGAN';
+    document.getElementById('resultLabel').textContent = style.name + ' · ' + strengthPct + '%';
     document.getElementById('results').classList.add('show');
     setStatus('生成完成！', 'success');
-    await saveHistory(originalDataUrl, currentPhotoKey, finalUrl, style.name, 0);
+    await saveHistory(originalDataUrl, currentPhotoKey, finalUrl, style.name, strengthPct);
     resetGeneratingState();
   } catch (e) {
     if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
