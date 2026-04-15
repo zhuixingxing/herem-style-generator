@@ -252,6 +252,7 @@
   <div class="section-label" style="margin-top:32px">选择生成服务</div>
   <div class="service-tabs" id="serviceTabs">
     <button class="svc-tab" data-svc="horde" onclick="selectService('horde')">Stable Horde</button>
+    <button class="svc-tab" data-svc="portrait" onclick="selectService('portrait')">人像插画</button>
     <button class="svc-tab" data-svc="puter" onclick="selectService('puter')">Puter.js</button>
   </div>
 
@@ -428,6 +429,30 @@ const STYLES = [
   },
 ];
 
+// ── Portrait-specific styles (AnimeGANv2 via HuggingFace Spaces) ──
+const PORTRAIT_STYLES = [
+  {
+    id: 'hayao', name: 'Ghibli Anime', sub: '吉卜力动漫',
+    swatch: 'linear-gradient(90deg,#7ab648,#3a8abf)',
+    hfSpace: 'https://akhaliq-animeganv2.hf.space', param: 'Hayao',
+  },
+  {
+    id: 'shinkai', name: 'Shinkai', sub: '新海诚风格',
+    swatch: 'linear-gradient(90deg,#4a90d9,#9b59b6)',
+    hfSpace: 'https://akhaliq-animeganv2.hf.space', param: 'Shinkai',
+  },
+  {
+    id: 'paprika', name: 'Paprika', sub: '复古动漫风',
+    swatch: 'linear-gradient(90deg,#e84393,#ff6b6b)',
+    hfSpace: 'https://akhaliq-animeganv2.hf.space', param: 'Paprika',
+  },
+  {
+    id: 'celeba', name: 'Portrait', sub: '人像插画',
+    swatch: 'linear-gradient(90deg,#f39c12,#e74c3c)',
+    hfSpace: 'https://akhaliq-animeganv2.hf.space', param: 'celeba_distill',
+  },
+];
+
 // ── State ──
 let activeStyleId    = 'herem';
 let activeService    = localStorage.getItem('herem_service') || 'horde';
@@ -447,7 +472,7 @@ const HISTORY_KEY  = 'herem_history_v3';
 // ── Site name ──
 const DEFAULT_TITLE = 'Illustration Style Generator';
 const TITLE_KEY = 'herem_site_title';
-const SVC_NAMES = { horde: 'Stable Horde', puter: 'Puter.js' };
+const SVC_NAMES = { horde: 'Stable Horde', portrait: 'AnimeGANv2', puter: 'Puter.js' };
 
 function applySiteName(name) {
   const display = name || DEFAULT_TITLE;
@@ -494,6 +519,11 @@ function selectService(svcId) {
     t.classList.toggle('active', t.dataset.svc === svcId)
   );
 
+  // Reset activeStyleId to the first style of the new service
+  const styles = getActiveStyles(svcId);
+  if (!styles.find(s => s.id === activeStyleId)) {
+    activeStyleId = styles[0].id;
+  }
 
   updateApikeyArea();
   buildStyleGrid();
@@ -508,7 +538,10 @@ function updateApikeyArea() {
 
   controls.style.display = activeService === 'horde' ? '' : 'none';
 
-  if (activeService === 'puter') {
+  if (activeService === 'portrait') {
+    note.textContent = '基于 AnimeGANv2（HuggingFace），专为人像照片优化的动漫风格转换，完全免费无需 Key。首次调用可能需要等待模型唤醒（约 20 秒）。';
+    note.style.display = 'block';
+  } else if (activeService === 'puter') {
     note.textContent = 'Puter.js 完全免费，无需 API Key。首次使用需注册/登录 Puter 账号（弹窗引导），之后分两步：AI 分析图片内容 → 按风格重新生成插画。';
     note.style.display = 'block';
   } else {
@@ -517,8 +550,12 @@ function updateApikeyArea() {
 }
 
 // ── Style grid ──
+function getActiveStyles(svc) {
+  return (svc || activeService) === 'portrait' ? PORTRAIT_STYLES : STYLES;
+}
+
 function buildStyleGrid() {
-  const styles = STYLES;
+  const styles = getActiveStyles();
   document.getElementById('styleGrid').innerHTML = styles.map(s => `
     <div class="style-card ${s.id === activeStyleId ? 'active' : ''}" onclick="selectStyle('${s.id}')" id="card-${s.id}">
       <div class="style-check">✓</div>
@@ -535,7 +572,7 @@ function selectStyle(id) {
   document.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
   const card = document.getElementById('card-' + id);
   if (card) card.classList.add('active');
-  const style = STYLES.find(s => s.id === id);
+  const style = getActiveStyles().find(s => s.id === id);
   if (style) document.getElementById('resultLabel').textContent = style.name + ' Style';
 }
 
@@ -712,10 +749,70 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
   if (activeService === 'horde') {
     await generateWithHorde();
+  } else if (activeService === 'portrait') {
+    await generateWithPortrait();
   } else if (activeService === 'puter') {
     await generateWithPuter();
   }
 });
+
+// ── Portrait / AnimeGANv2 ──
+async function generateWithPortrait() {
+  const style = PORTRAIT_STYLES.find(s => s.id === activeStyleId) || PORTRAIT_STYLES[0];
+  try {
+    setStatus('正在调用 AnimeGANv2，首次可能需等待模型唤醒…<div class="progress-bar"><div class="progress-fill" id="pf" style="width:20%"></div></div>', 'info');
+
+    // Resize to 512px max — AnimeGANv2 works best at moderate resolution
+    const resized = await new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 512;
+        let w = img.width, h = img.height;
+        if (w > max || h > max) { const r = Math.min(max/w, max/h); w = Math.round(w*r); h = Math.round(h*r); }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', 0.9));
+      };
+      img.src = originalDataUrl;
+    });
+
+    if (isCancelled) return;
+
+    const pf = document.getElementById('pf');
+    if (pf) pf.style.width = '50%';
+
+    const res = await fetch(`${style.hfSpace}/run/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: [resized, style.param] }),
+    });
+
+    if (isCancelled) return;
+
+    if (res.status === 503) {
+      throw new Error('模型正在唤醒，请稍等约 20 秒后重试');
+    }
+    if (!res.ok) throw new Error(`请求失败 HTTP ${res.status}`);
+
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+
+    const resultUrl = json.data?.[0];
+    if (!resultUrl) throw new Error('未获得图片结果');
+
+    if (isCancelled) return;
+    currentResultB64 = resultUrl;
+    document.getElementById('resultImg').src = resultUrl;
+    document.getElementById('resultLabel').textContent = style.name + ' · AnimeGAN';
+    document.getElementById('results').classList.add('show');
+    setStatus('生成完成！', 'success');
+    await saveHistory(originalDataUrl, currentPhotoKey, resultUrl, style.name, 0);
+    resetGeneratingState();
+  } catch (e) {
+    if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
+  }
+}
 
 // ── Stable Horde ──
 async function generateWithHorde() {
