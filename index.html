@@ -717,15 +717,21 @@ function resizeForApi(dataUrl) {
 function makeThumbnail(dataUrl, maxPx) {
   return new Promise(resolve => {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
       const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1);
       const w = Math.round(img.width * ratio);
       const h = Math.round(img.height * ratio);
       const c = document.createElement('canvas');
       c.width = w; c.height = h;
-      c.getContext('2d').drawImage(img, 0, 0, w, h);
-      resolve(c.toDataURL('image/jpeg', 0.7));
+      try {
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', 0.7));
+      } catch (_) {
+        resolve(dataUrl.startsWith('data:') ? dataUrl : '');
+      }
     };
+    img.onerror = () => resolve(dataUrl.startsWith('data:') ? dataUrl : '');
     img.src = dataUrl;
   });
 }
@@ -809,12 +815,25 @@ async function generateWithPortrait() {
     if (!resultUrl) throw new Error('未获得图片结果');
     if (isCancelled) return;
 
-    currentResultB64 = resultUrl;
-    document.getElementById('resultImg').src = resultUrl;
+    // Convert HF temp URL to persistent data URL so history saves correctly
+    let finalUrl = resultUrl;
+    try {
+      const r = await fetch(resultUrl);
+      if (r.ok) {
+        const blob = await r.blob();
+        finalUrl = await new Promise(res => {
+          const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob);
+        });
+      }
+    } catch (_) {}
+
+    if (isCancelled) return;
+    currentResultB64 = finalUrl;
+    document.getElementById('resultImg').src = finalUrl;
     document.getElementById('resultLabel').textContent = style.name + ' · AnimeGAN';
     document.getElementById('results').classList.add('show');
     setStatus('生成完成！', 'success');
-    await saveHistory(originalDataUrl, currentPhotoKey, resultUrl, style.name, 0);
+    await saveHistory(originalDataUrl, currentPhotoKey, finalUrl, style.name, 0);
     resetGeneratingState();
   } catch (e) {
     if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
