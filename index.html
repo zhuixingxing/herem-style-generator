@@ -429,27 +429,39 @@ const STYLES = [
   },
 ];
 
-// ── Portrait-specific styles (AnimeGANv2 via HuggingFace Spaces) ──
+// ── Portrait-specific styles (via Stable Horde anime models) ──
 const PORTRAIT_STYLES = [
   {
     id: 'hayao', name: 'Ghibli Anime', sub: '吉卜力动漫',
     swatch: 'linear-gradient(90deg,#7ab648,#3a8abf)',
-    hfSpace: 'https://akhaliq-animeganv2.hf.space', param: 'Hayao',
+    model: 'Anything v3',
+    prompt: 'studio ghibli anime style illustration, soft pastel colors, hayao miyazaki art style, detailed, beautiful, masterpiece, best quality',
+    neg: 'photo, realistic, 3d render, low quality, blurry, ugly, deformed, nsfw',
+    denoising: 0.65,
   },
   {
     id: 'shinkai', name: 'Shinkai', sub: '新海诚风格',
     swatch: 'linear-gradient(90deg,#4a90d9,#9b59b6)',
-    hfSpace: 'https://akhaliq-animeganv2.hf.space', param: 'Shinkai',
+    model: 'Anything v3',
+    prompt: 'makoto shinkai anime style, detailed background, beautiful cinematic lighting, vibrant colors, dramatic sky, masterpiece, best quality',
+    neg: 'photo, realistic, low quality, blurry, ugly, nsfw',
+    denoising: 0.65,
   },
   {
-    id: 'paprika', name: 'Paprika', sub: '复古动漫风',
-    swatch: 'linear-gradient(90deg,#e84393,#ff6b6b)',
-    hfSpace: 'https://akhaliq-animeganv2.hf.space', param: 'Paprika',
-  },
-  {
-    id: 'celeba', name: 'Portrait', sub: '人像插画',
+    id: 'portrait', name: 'Anime Portrait', sub: '动漫人像',
     swatch: 'linear-gradient(90deg,#f39c12,#e74c3c)',
-    hfSpace: 'https://akhaliq-animeganv2.hf.space', param: 'celeba_distill',
+    model: 'AnyLoRA',
+    prompt: 'anime portrait illustration, detailed beautiful face, expressive eyes, soft shading, cel shading, masterpiece, best quality',
+    neg: 'photo, realistic, ugly, deformed, extra fingers, low quality, nsfw',
+    denoising: 0.60,
+  },
+  {
+    id: 'paprika', name: 'Retro Anime', sub: '复古动漫风',
+    swatch: 'linear-gradient(90deg,#e84393,#ff6b6b)',
+    model: 'Anything v3',
+    prompt: 'retro anime style, 90s anime aesthetic, cel animation, vintage illustration, bold outlines, colorful, masterpiece, best quality',
+    neg: 'photo, realistic, modern, 3d, low quality, blurry, nsfw',
+    denoising: 0.70,
   },
 ];
 
@@ -472,7 +484,7 @@ const HISTORY_KEY  = 'herem_history_v3';
 // ── Site name ──
 const DEFAULT_TITLE = 'Illustration Style Generator';
 const TITLE_KEY = 'herem_site_title';
-const SVC_NAMES = { horde: 'Stable Horde', portrait: 'AnimeGANv2', puter: 'Puter.js' };
+const SVC_NAMES = { horde: 'Stable Horde', portrait: 'Stable Horde (Anime)', puter: 'Puter.js' };
 
 function applySiteName(name) {
   const display = name || DEFAULT_TITLE;
@@ -539,7 +551,7 @@ function updateApikeyArea() {
   controls.style.display = activeService === 'horde' ? '' : 'none';
 
   if (activeService === 'portrait') {
-    note.textContent = '基于 AnimeGANv2（HuggingFace），专为人像照片优化的动漫风格转换，完全免费无需 Key。首次调用可能需要等待模型唤醒（约 20 秒）。';
+    note.textContent = '人像插画模式使用 Stable Horde 动漫专属模型（Anything v3 / AnyLoRA），将人像照片转换为动漫插画风格，完全免费无需额外 Key。';
     note.style.display = 'block';
   } else if (activeService === 'puter') {
     note.textContent = 'Puter.js 完全免费，无需 API Key。首次使用需注册/登录 Puter 账号（弹窗引导），之后分两步：AI 分析图片内容 → 按风格重新生成插画。';
@@ -756,59 +768,45 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   }
 });
 
-// ── Portrait / AnimeGANv2 ──
+// ── Portrait (Stable Horde anime models) ──
 async function generateWithPortrait() {
   const style = PORTRAIT_STYLES.find(s => s.id === activeStyleId) || PORTRAIT_STYLES[0];
   try {
-    setStatus('正在调用 AnimeGANv2，首次可能需等待模型唤醒…<div class="progress-bar"><div class="progress-fill" id="pf" style="width:20%"></div></div>', 'info');
-
-    // Resize to 512px max — AnimeGANv2 works best at moderate resolution
-    const resized = await new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        const max = 512;
-        let w = img.width, h = img.height;
-        if (w > max || h > max) { const r = Math.min(max/w, max/h); w = Math.round(w*r); h = Math.round(h*r); }
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/jpeg', 0.9));
-      };
-      img.src = originalDataUrl;
-    });
-
+    const { base64, width, height } = await resizeForApi(originalDataUrl);
     if (isCancelled) return;
 
-    const pf = document.getElementById('pf');
-    if (pf) pf.style.width = '50%';
+    setStatus('正在提交人像插画任务...<div class="progress-bar"><div class="progress-fill" id="pf" style="width:5%"></div></div>', 'info');
 
-    const res = await fetch(`${style.hfSpace}/run/predict`, {
+    const submitRes = await fetch(`${HORDE_BASE}/generate/async`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: [resized, style.param] }),
+      headers: { 'Content-Type': 'application/json', 'apikey': HORDE_KEY, 'Client-Agent': 'illus-gen:2.0:web' },
+      body: JSON.stringify({
+        prompt: style.prompt + ' ### ' + style.neg,
+        params: {
+          sampler_name: 'k_euler_a',
+          cfg_scale: 7,
+          denoising_strength: style.denoising,
+          steps: 25,
+          width: Math.min(width, 512),
+          height: Math.min(height, 512),
+          n: 1,
+          seed: String(Math.floor(Math.random() * 999999)),
+        },
+        source_image: base64,
+        source_processing: 'img2img',
+        models: [style.model],
+        r2: false, nsfw: false, censor_nsfw: true, trusted_workers: false, slow_workers: true,
+      }),
     });
 
     if (isCancelled) return;
+    if (!submitRes.ok) throw new Error('提交失败: ' + await submitRes.text());
+    const { id: jobId } = await submitRes.json();
+    if (!jobId) throw new Error('未获得任务 ID');
 
-    if (res.status === 503) {
-      throw new Error('模型正在唤醒，请稍等约 20 秒后重试');
-    }
-    if (!res.ok) throw new Error(`请求失败 HTTP ${res.status}`);
-
-    const json = await res.json();
-    if (json.error) throw new Error(json.error);
-
-    const resultUrl = json.data?.[0];
-    if (!resultUrl) throw new Error('未获得图片结果');
-
-    if (isCancelled) return;
-    currentResultB64 = resultUrl;
-    document.getElementById('resultImg').src = resultUrl;
-    document.getElementById('resultLabel').textContent = style.name + ' · AnimeGAN';
-    document.getElementById('results').classList.add('show');
-    setStatus('生成完成！', 'success');
-    await saveHistory(originalDataUrl, currentPhotoKey, resultUrl, style.name, 0);
-    resetGeneratingState();
+    currentJobId = jobId;
+    setStatus('任务已提交，正在排队...<div class="progress-bar"><div class="progress-fill" id="pf" style="width:5%"></div></div>', 'info');
+    pollStatus(jobId, style.name, Math.round(style.denoising * 100));
   } catch (e) {
     if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
   }
