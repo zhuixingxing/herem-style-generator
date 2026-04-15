@@ -261,9 +261,9 @@
   <div class="section-label">选择插画风格</div>
   <div class="style-grid" id="styleGrid"></div>
 
-  <div class="controls">
+  <div class="controls" id="controlsBox">
     <label>风格强度
-      <span>保持画面内容与构图不变，仅调整插画风格渲染程度（仅 Stable Horde 有效）</span>
+      <span>数值越高，风格越强烈；数值越低，越贴近原图构图与色彩</span>
     </label>
     <div class="slider-row">
       <input type="range" id="strength" min="30" max="70" value="50">
@@ -503,7 +503,10 @@ function selectService(svcId) {
 }
 
 function updateApikeyArea() {
-  const note = document.getElementById('svcNote');
+  const note     = document.getElementById('svcNote');
+  const controls = document.getElementById('controlsBox');
+
+  controls.style.display = activeService === 'horde' ? '' : 'none';
 
   if (activeService === 'puter') {
     note.textContent = 'Puter.js 完全免费，无需 API Key。首次使用需注册/登录 Puter 账号（弹窗引导），之后分两步：AI 分析图片内容 → 按风格重新生成插画。';
