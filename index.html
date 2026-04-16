@@ -774,17 +774,28 @@ async function generateWithHorde() {
 
     setStatus('正在提交任务...', 'info');
 
-    const submitRes = await fetch(`${HORDE_BASE}/generate/async`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': HORDE_KEY, 'Client-Agent': 'illus-gen:2.0:web' },
-      body: JSON.stringify({
-        prompt: finalPrompt + ' ### ' + finalNeg,
-        params: { ...p, denoising_strength: denoising, seed: String(Math.floor(Math.random() * 999999)), height, width, n: 1 },
-        source_image: base64, source_processing: 'img2img',
-        models: ['stable_diffusion'],
-        r2: false, nsfw: false, censor_nsfw: true, trusted_workers: false, slow_workers: true,
-      }),
-    });
+    const submitCtrl = new AbortController();
+    const submitTimeout = setTimeout(() => submitCtrl.abort(), 25000);
+    let submitRes;
+    try {
+      submitRes = await fetch(`${HORDE_BASE}/generate/async`, {
+        method: 'POST',
+        signal: submitCtrl.signal,
+        headers: { 'Content-Type': 'application/json', 'apikey': HORDE_KEY, 'Client-Agent': 'illus-gen:2.0:web' },
+        body: JSON.stringify({
+          prompt: finalPrompt + ' ### ' + finalNeg,
+          params: { ...p, denoising_strength: denoising, seed: String(Math.floor(Math.random() * 999999)), height, width, n: 1 },
+          source_image: base64, source_processing: 'img2img',
+          models: ['stable_diffusion'],
+          r2: false, nsfw: false, censor_nsfw: true, trusted_workers: false, slow_workers: true,
+        }),
+      });
+    } catch (fetchErr) {
+      if (fetchErr.name === 'AbortError') throw new Error('提交超时（25s），Stable Horde 目前可能过载，请稍后重试');
+      throw fetchErr;
+    } finally {
+      clearTimeout(submitTimeout);
+    }
 
     if (isCancelled) return;
     if (!submitRes.ok) throw new Error('提交失败: ' + await submitRes.text());
@@ -807,7 +818,9 @@ async function pollStatus(jobId, styleName, strengthPct) {
   if (isCancelled) return;
 
   try {
-    const res  = await fetch(`${HORDE_BASE}/generate/check/${jobId}`, { headers: { 'Client-Agent': 'illus-gen:2.0:web' } });
+    const pollCtrl = new AbortController();
+    setTimeout(() => pollCtrl.abort(), 15000);
+    const res  = await fetch(`${HORDE_BASE}/generate/check/${jobId}`, { signal: pollCtrl.signal, headers: { 'Client-Agent': 'illus-gen:2.0:web' } });
     if (isCancelled) return;
     if (!res.ok) throw new Error('状态查询失败 ' + res.status);
     const data = await res.json();
