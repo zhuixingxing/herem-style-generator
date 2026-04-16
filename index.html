@@ -76,6 +76,11 @@
   .upload-overlay span { font-family: 'Playfair Display', serif; font-style: italic; color: var(--parchment); font-size: 0.9rem; letter-spacing: 1px; margin-top: 8px; }
   .upload-overlay svg { width: 32px; height: 32px; color: var(--ochre); }
   #fileInput { display: none; }
+  .analysis-badge { display:none; justify-content:center; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .analysis-badge.show { display:flex; }
+  .analysis-badge .ab-tag { font-family:'Playfair Display',serif; font-size:0.68rem; letter-spacing:1.2px; padding:4px 14px; background:rgba(30,58,95,0.08); border:1px solid rgba(30,58,95,0.22); border-radius:20px; color:var(--blue-deep); }
+  .analysis-badge .ab-tag.pose { background:rgba(193,127,36,0.1); border-color:rgba(193,127,36,0.35); color:var(--ochre-dark); }
+  .analysis-badge .ab-tag.analyzing { opacity:0.55; font-style:italic; }
 
   /* ── Service note ── */
   .svc-note { font-family: 'Lora', serif; font-style: italic; font-size: 0.78rem; color: #7a6048; text-align: center; margin-bottom: 14px; padding: 10px 16px; background: rgba(255,255,255,0.4); border: 1px dashed #d4b896; border-radius: 4px; line-height: 1.6; display: none; }
@@ -231,6 +236,9 @@
       </div>
     </div>
     <input type="file" id="fileInput" accept="image/*">
+  </div>
+  <div class="analysis-badge" id="analysisBadge">
+    <span class="ab-tag analyzing" id="analysisText"></span>
   </div>
   <div class="section-label" style="margin-top:32px">选择插画风格</div>
   <div class="style-grid" id="styleGrid"></div>
@@ -411,11 +419,29 @@ let pollTimer        = null;
 let origW = 0, origH = 0;
 let currentJobId     = null;
 let isCancelled      = false;
-let isPortrait       = false;
+let photoFeatures    = { isPortrait: false, poseType: 'unknown' };
 
 const HORDE_BASE   = 'https://stablehorde.net/api/v2';
 const HORDE_KEY    = 'zIeAXOrrSLBTkgKiNiDzjQ';
 const HISTORY_KEY  = 'herem_history_v3';
+const POSE_MODS = {
+  headshot: {
+    prompt_add: ', close-up portrait, detailed facial features, expressive face, intimate framing',
+    neg_add: ', wide shot, distant figure, full body shot',
+  },
+  halfbody: {
+    prompt_add: ', upper body portrait, waist-up composition',
+    neg_add: '',
+  },
+  fullbody: {
+    prompt_add: ', full body illustration, complete figure, head to toe',
+    neg_add: ', cropped, partial body',
+  },
+  dynamic: {
+    prompt_add: ', dynamic action pose, movement, motion, energetic figure',
+    neg_add: ', static pose, standing still',
+  },
+};
 
 // ── Site name ──
 const DEFAULT_TITLE = 'Illustration Style Generator';
@@ -507,9 +533,13 @@ function handleFile(file) {
     };
     img.src = originalDataUrl;
 
-    isPortrait = false;
-    detectPortrait(originalDataUrl).then(result => {
-      isPortrait = result;
+    photoFeatures = { isPortrait: false, poseType: 'unknown' };
+    const badge = document.getElementById('analysisBadge');
+    badge.className = 'analysis-badge show';
+    document.getElementById('analysisText').textContent = '识别中...';
+    analyzePhoto(originalDataUrl).then(f => {
+      photoFeatures = f;
+      updateAnalysisBadge();
     });
 
     document.getElementById('previewImg').src = originalDataUrl;
@@ -557,7 +587,7 @@ function setGenerating(on) {
   document.getElementById('cancelBtn').classList.toggle('visible', on);
 }
 
-// ── Portrait detection ──
+// ── Photo analysis: portrait + pose detection ──
 function isSkinPixel(r, g, b) {
   return (
     r > 95 && g > 40 && b > 20 &&
@@ -568,41 +598,96 @@ function isSkinPixel(r, g, b) {
   );
 }
 
-async function detectPortrait(dataUrl) {
+function updateAnalysisBadge() {
+  const badge = document.getElementById('analysisBadge');
+  const textEl = document.getElementById('analysisText');
+  if (!photoFeatures.isPortrait) {
+    badge.className = 'analysis-badge';
+    return;
+  }
+  const poseLabels = { headshot: '特写人像', halfbody: '半身人像', fullbody: '全身人像', dynamic: '动态人像', group: '多人合影', unknown: '人像' };
+  badge.innerHTML = `<span class="ab-tag">人像已识别</span><span class="ab-tag pose">${poseLabels[photoFeatures.poseType] || '人像'}</span>`;
+  badge.className = 'analysis-badge show';
+}
+
+async function analyzePhoto(dataUrl) {
+  const result = { isPortrait: false, poseType: 'unknown' };
+
+  // Try browser FaceDetector API first (Chromium)
   if ('FaceDetector' in window) {
     try {
-      const fd = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+      const fd = new FaceDetector({ fastMode: false, maxDetectedFaces: 4 });
       const img = new Image();
       img.src = dataUrl;
       await new Promise(r => { img.onload = r; });
       const faces = await fd.detect(img);
-      if (faces.length > 0) return true;
+      if (faces.length >= 2) { result.isPortrait = true; result.poseType = 'group'; return result; }
+      if (faces.length === 1) {
+        result.isPortrait = true;
+        const faceH = faces[0].boundingBox.height;
+        const ratio = faceH / img.naturalHeight;
+        result.poseType = ratio > 0.38 ? 'headshot' : ratio > 0.18 ? 'halfbody' : 'fullbody';
+        return result;
+      }
     } catch (_) {}
   }
+
+  // Fallback: canvas skin-pixel analysis
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
-      const scale = Math.min(1, 180 / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const MAX = 220;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale) || 1;
+      const h = Math.round(img.height * scale) || 1;
       const c = document.createElement('canvas');
       c.width = w; c.height = h;
       c.getContext('2d').drawImage(img, 0, 0, w, h);
-      const data = c.getContext('2d').getImageData(0, 0, w, h).data;
-      const fxMin = w * 0.20, fxMax = w * 0.80, fyMax = h * 0.85;
-      let skinTotal = 0, skinInZone = 0;
+      const d = c.getContext('2d').getImageData(0, 0, w, h).data;
+
+      // 4 horizontal bands × 3 vertical zones
+      const BANDS = 4, ZONES = 3;
+      const band = Array(BANDS).fill(0), bandPx = Array(BANDS).fill(0);
+      const zone = Array(ZONES).fill(0), zonePx = Array(ZONES).fill(0);
+      let totalSkin = 0;
+
       for (let y = 0; y < h; y++) {
+        const b = Math.min(BANDS - 1, Math.floor(y / h * BANDS));
         for (let x = 0; x < w; x++) {
+          const z = Math.min(ZONES - 1, Math.floor(x / w * ZONES));
           const i = (y * w + x) * 4;
-          if (isSkinPixel(data[i], data[i + 1], data[i + 2])) {
-            skinTotal++;
-            if (x >= fxMin && x < fxMax && y < fyMax) skinInZone++;
+          bandPx[b]++; zonePx[z]++;
+          if (isSkinPixel(d[i], d[i + 1], d[i + 2])) {
+            band[b]++; zone[z]++; totalSkin++;
           }
         }
       }
-      const skinRatio = skinTotal / (w * h);
-      const zoneConc  = skinTotal > 0 ? skinInZone / skinTotal : 0;
-      resolve(skinRatio > 0.15 && zoneConc > 0.55);
+
+      const skinRatio = totalSkin / (w * h);
+      const zoneDens  = zone.map((v, i) => v / (zonePx[i] || 1));
+      const bandDens  = band.map((v, i) => v / (bandPx[i] || 1));
+      const centerConc = (bandDens[0] + bandDens[1]) / 2 + zoneDens[1] * 0.5;
+
+      if (skinRatio < 0.08 || centerConc < 0.08) { resolve(result); return; }
+      result.isPortrait = true;
+
+      const topHalf    = bandDens[0] + bandDens[1];
+      const bottomHalf = bandDens[2] + bandDens[3];
+      const edgeSpread = (zoneDens[0] + zoneDens[2]) / 2;
+
+      if (topHalf > 0.55 && bottomHalf < 0.12) {
+        result.poseType = 'headshot';
+      } else if (bottomHalf > 0.14 && edgeSpread > 0.07) {
+        result.poseType = 'dynamic';
+      } else if (bottomHalf > 0.10) {
+        result.poseType = 'fullbody';
+      } else {
+        result.poseType = 'halfbody';
+      }
+
+      resolve(result);
     };
+    img.onerror = () => resolve(result);
     img.src = dataUrl;
   });
 }
@@ -663,12 +748,21 @@ async function generateWithHorde() {
   const strengthPct = parseInt(document.getElementById('strength').value);
   const style = STYLES.find(s => s.id === activeStyleId);
 
+  const isPortrait = photoFeatures.isPortrait;
+  const poseType   = photoFeatures.poseType;
+
   const p = isPortrait && style.portrait
     ? { ...style.params, ...style.portrait.params }
     : { ...style.params };
 
-  const finalPrompt = style.prompt + (isPortrait && style.portrait ? style.portrait.prompt_add : '');
-  const finalNeg    = style.neg    + (isPortrait && style.portrait ? style.portrait.neg_add    : '');
+  let finalPrompt = style.prompt + (isPortrait && style.portrait ? style.portrait.prompt_add : '');
+  let finalNeg    = style.neg    + (isPortrait && style.portrait ? style.portrait.neg_add    : '');
+
+  // Apply pose-specific modifiers
+  if (poseType !== 'unknown' && POSE_MODS[poseType]) {
+    finalPrompt += POSE_MODS[poseType].prompt_add;
+    if (POSE_MODS[poseType].neg_add) finalNeg += POSE_MODS[poseType].neg_add;
+  }
 
   let denoising = strengthPct / 100;
   if (isPortrait && p.denoise_cap) denoising = Math.min(denoising, p.denoise_cap);
