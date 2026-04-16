@@ -77,12 +77,6 @@
   .upload-overlay svg { width: 32px; height: 32px; color: var(--ochre); }
   #fileInput { display: none; }
 
-  /* ── Service selector ── */
-  .service-tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; justify-content: center; }
-  .svc-tab { font-family: 'Playfair Display', serif; font-size: 0.68rem; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 16px; border: 1.5px solid #d4b896; border-radius: 4px; background: rgba(255,255,255,0.5); color: #7a6048; cursor: pointer; transition: all 0.2s; }
-  .svc-tab.active { background: var(--blue-deep); color: var(--parchment); border-color: var(--blue-deep); }
-  .svc-tab:hover:not(.active) { border-color: var(--ochre); color: var(--ochre-dark); }
-
   /* ── Service note ── */
   .svc-note { font-family: 'Lora', serif; font-style: italic; font-size: 0.78rem; color: #7a6048; text-align: center; margin-bottom: 14px; padding: 10px 16px; background: rgba(255,255,255,0.4); border: 1px dashed #d4b896; border-radius: 4px; line-height: 1.6; display: none; }
 
@@ -183,9 +177,6 @@
   @media (max-width: 480px) { .result-actions { grid-template-columns: 1fr 1fr; } .action-btn { padding: 9px 4px; font-size: 0.65rem; letter-spacing: 0.5px; gap: 3px; } }
   @media (max-width: 420px) { .style-grid { grid-template-columns: repeat(2, 1fr); } .btn-row { flex-direction: column; } .cancel-btn { text-align: center; } }
 
-  .portrait-badge { display: none; align-items: center; gap: 6px; margin-top: 10px; padding: 6px 14px; background: rgba(30,58,95,0.08); border: 1px solid rgba(30,58,95,0.2); border-radius: 20px; font-family: 'Playfair Display', serif; font-size: 0.72rem; color: var(--blue-deep); letter-spacing: 1px; }
-  .portrait-badge.show { display: inline-flex; }
-  .portrait-badge svg { width: 13px; height: 13px; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -241,25 +232,7 @@
     </div>
     <input type="file" id="fileInput" accept="image/*">
   </div>
-  <div style="text-align:center">
-    <span class="portrait-badge" id="portraitBadge">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-      检测到人像，已启用人像优化参数
-    </span>
-  </div>
-
-  <!-- Service selector -->
-  <div class="section-label" style="margin-top:32px">选择生成服务</div>
-  <div class="service-tabs" id="serviceTabs">
-    <button class="svc-tab" data-svc="horde" onclick="selectService('horde')">Stable Horde</button>
-    <button class="svc-tab" data-svc="portrait" onclick="selectService('portrait')">人像插画</button>
-    <button class="svc-tab" data-svc="puter" onclick="selectService('puter')">Puter.js</button>
-  </div>
-
-  <!-- Service-specific hint -->
-  <div class="svc-note" id="svcNote"></div>
-
-  <div class="section-label">选择插画风格</div>
+  <div class="section-label" style="margin-top:32px">选择插画风格</div>
   <div class="style-grid" id="styleGrid"></div>
 
   <div class="controls" id="controlsBox">
@@ -429,24 +402,8 @@ const STYLES = [
   },
 ];
 
-// ── Portrait-specific styles (AnimeGANv2 via HuggingFace Space) ──
-const ANIMEGAN_SPACE = 'https://akhaliq-animeganv2.hf.space';
-const PORTRAIT_STYLES = [
-  {
-    id: 'hayao', name: 'Anime V1', sub: '动漫风格 V1',
-    swatch: 'linear-gradient(90deg,#7ab648,#3a8abf)',
-    ver: 'Version 1',
-  },
-  {
-    id: 'shinkai', name: 'Anime V2', sub: '动漫风格 V2',
-    swatch: 'linear-gradient(90deg,#4a90d9,#9b59b6)',
-    ver: 'Version 2',
-  },
-];
-
 // ── State ──
 let activeStyleId    = 'herem';
-let activeService    = localStorage.getItem('herem_service') || 'horde';
 let originalDataUrl  = null;
 let currentPhotoKey  = null;
 let currentResultB64 = null;
@@ -463,8 +420,6 @@ const HISTORY_KEY  = 'herem_history_v3';
 // ── Site name ──
 const DEFAULT_TITLE = 'Illustration Style Generator';
 const TITLE_KEY = 'herem_site_title';
-const SVC_NAMES = { horde: 'Stable Horde', portrait: 'AnimeGANv2', puter: 'Puter.js' };
-
 function applySiteName(name) {
   const display = name || DEFAULT_TITLE;
   const parts = display.split(' ');
@@ -476,7 +431,7 @@ function applySiteName(name) {
   }
   document.getElementById('siteTitle').innerHTML = h1html;
   document.title = display;
-  document.getElementById('siteFooter').textContent = display + ' · Powered by ' + (SVC_NAMES[activeService] || 'Stable Horde');
+  document.getElementById('siteFooter').textContent = display + ' · Powered by Stable Horde';
 }
 
 function openEditName() {
@@ -501,66 +456,10 @@ function resetSiteName() {
   closeEditName();
 }
 
-// ── Service selector ──
-function selectService(svcId) {
-  activeService = svcId;
-  localStorage.setItem('herem_service', svcId);
-
-  document.querySelectorAll('.svc-tab').forEach(t =>
-    t.classList.toggle('active', t.dataset.svc === svcId)
-  );
-
-  // Reset activeStyleId to the first style of the new service
-  const styles = getActiveStyles(svcId);
-  if (!styles.find(s => s.id === activeStyleId)) {
-    activeStyleId = styles[0].id;
-  }
-
-  updateApikeyArea();
-  buildStyleGrid();
-
-  const siteTitle = localStorage.getItem(TITLE_KEY) || DEFAULT_TITLE;
-  document.getElementById('siteFooter').textContent = siteTitle + ' · Powered by ' + (SVC_NAMES[svcId] || 'Stable Horde');
-}
-
-function updateApikeyArea() {
-  const note     = document.getElementById('svcNote');
-  const controls = document.getElementById('controlsBox');
-  const slider   = document.getElementById('strength');
-  const sliderVal = document.getElementById('strengthVal');
-
-  if (activeService === 'portrait') {
-    controls.style.display = '';
-    slider.min = 20; slider.max = 100;
-    if (+slider.value < 20 || +slider.value > 100) slider.value = 80;
-    sliderVal.textContent = slider.value + '%';
-    note.textContent = '基于 AnimeGANv2（HuggingFace Space），专为人像照片优化的动漫风格转换，完全免费无需 Key。首次调用可能需要等待模型唤醒（约 10 秒）。';
-    note.style.display = 'block';
-  } else if (activeService === 'horde') {
-    controls.style.display = '';
-    slider.min = 30; slider.max = 70;
-    if (+slider.value < 30 || +slider.value > 70) slider.value = 50;
-    sliderVal.textContent = slider.value + '%';
-    note.style.display = 'none';
-  } else {
-    controls.style.display = 'none';
-  }
-
-  if (activeService === 'puter') {
-    note.textContent = 'Puter.js 完全免费，无需 API Key。首次使用需注册/登录 Puter 账号（弹窗引导），之后分两步：AI 分析图片内容 → 按风格重新生成插画。';
-    note.style.display = 'block';
-  } else {
-    note.style.display = 'none';
-  }
-}
-
 // ── Style grid ──
-function getActiveStyles(svc) {
-  return (svc || activeService) === 'portrait' ? PORTRAIT_STYLES : STYLES;
-}
 
 function buildStyleGrid() {
-  const styles = getActiveStyles();
+  const styles = STYLES;
   document.getElementById('styleGrid').innerHTML = styles.map(s => `
     <div class="style-card ${s.id === activeStyleId ? 'active' : ''}" onclick="selectStyle('${s.id}')" id="card-${s.id}">
       <div class="style-check">✓</div>
@@ -577,7 +476,7 @@ function selectStyle(id) {
   document.querySelectorAll('.style-card').forEach(c => c.classList.remove('active'));
   const card = document.getElementById('card-' + id);
   if (card) card.classList.add('active');
-  const style = getActiveStyles().find(s => s.id === id);
+  const style = STYLES.find(s => s.id === id);
   if (style) document.getElementById('resultLabel').textContent = style.name + ' Style';
 }
 
@@ -609,10 +508,8 @@ function handleFile(file) {
     img.src = originalDataUrl;
 
     isPortrait = false;
-    document.getElementById('portraitBadge').classList.remove('show');
     detectPortrait(originalDataUrl).then(result => {
       isPortrait = result;
-      document.getElementById('portraitBadge').classList.toggle('show', result);
     });
 
     document.getElementById('previewImg').src = originalDataUrl;
@@ -637,7 +534,7 @@ function setStatus(msg, type) {
 async function cancelGeneration() {
   isCancelled = true;
   if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
-  if (activeService === 'horde' && currentJobId) {
+  if (currentJobId) {
     try {
       await fetch(`${HORDE_BASE}/generate/status/${currentJobId}`, {
         method: 'DELETE',
@@ -758,135 +655,8 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   setGenerating(true);
   document.getElementById('results').classList.remove('show');
 
-  if (activeService === 'horde') {
-    await generateWithHorde();
-  } else if (activeService === 'portrait') {
-    await generateWithPortrait();
-  } else if (activeService === 'puter') {
-    await generateWithPuter();
-  }
+  await generateWithHorde();
 });
-
-// ── Portrait helpers ──
-function blendImages(origUrl, styledUrl, strength) {
-  // strength: 0=pure original, 1=pure styled
-  return new Promise(resolve => {
-    const styled = new Image();
-    styled.onload = () => {
-      const orig = new Image();
-      orig.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = styled.width; c.height = styled.height;
-        const ctx = c.getContext('2d');
-        ctx.drawImage(orig, 0, 0, c.width, c.height);
-        ctx.globalAlpha = strength;
-        ctx.drawImage(styled, 0, 0);
-        ctx.globalAlpha = 1;
-        resolve(c.toDataURL('image/jpeg', 0.92));
-      };
-      orig.onerror = () => resolve(styledUrl);
-      orig.src = origUrl;
-    };
-    styled.onerror = () => resolve(styledUrl);
-    styled.src = styledUrl;
-  });
-}
-
-// ── Portrait (AnimeGANv2 via HuggingFace Space) ──
-async function generateWithPortrait() {
-  const style = PORTRAIT_STYLES.find(s => s.id === activeStyleId) || PORTRAIT_STYLES[0];
-  try {
-    // Resize to 512px max
-    const resized = await new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        const max = 512;
-        let w = img.width, h = img.height;
-        if (w > max || h > max) { const r = Math.min(max/w, max/h); w = Math.round(w*r); h = Math.round(h*r); }
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/jpeg', 0.85));
-      };
-      img.src = originalDataUrl;
-    });
-    if (isCancelled) return;
-
-    setStatus('正在提交到 AnimeGANv2...<div class="progress-bar"><div class="progress-fill" id="pf" style="width:20%"></div></div>', 'info');
-
-    // Queue the job (Gradio 5.x named endpoint)
-    const queueRes = await fetch(`${ANIMEGAN_SPACE}/gradio_api/call/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: [{ url: resized, meta: { '_type': 'gradio.FileData' } }, style.ver] }),
-    });
-    if (!queueRes.ok) throw new Error('提交失败 HTTP ' + queueRes.status);
-    const { event_id } = await queueRes.json();
-    if (!event_id) throw new Error('未获得任务 ID');
-    if (isCancelled) return;
-
-    setStatus('AnimeGAN 处理中...<div class="progress-bar"><div class="progress-fill" id="pf" style="width:60%"></div></div>', 'info');
-
-    // Read SSE stream for result
-    const pollRes = await fetch(`${ANIMEGAN_SPACE}/gradio_api/call/generate/${event_id}`);
-    if (!pollRes.ok) throw new Error('获取结果失败 HTTP ' + pollRes.status);
-
-    const reader = pollRes.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '', evtType = null, resultUrl = null;
-
-    outer: while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop();
-      for (const line of lines) {
-        if (line.startsWith('event: ')) { evtType = line.slice(7).trim(); continue; }
-        if (line.startsWith('data: ')) {
-          const payload = line.slice(6).trim();
-          if (evtType === 'complete') { resultUrl = JSON.parse(payload)[0]?.url; break outer; }
-          if (evtType === 'error') throw new Error('AnimeGAN 处理失败，请重试');
-        }
-      }
-    }
-
-    if (!resultUrl) throw new Error('未获得图片结果');
-    if (isCancelled) return;
-
-    // Convert HF temp URL to persistent data URL so history saves correctly
-    let finalUrl = resultUrl;
-    try {
-      const r = await fetch(resultUrl);
-      if (r.ok) {
-        const blob = await r.blob();
-        finalUrl = await new Promise(res => {
-          const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob);
-        });
-      }
-    } catch (_) {}
-
-    if (isCancelled) return;
-
-    // Apply style strength blending (client-side: blend original + anime output)
-    const strengthPct = parseInt(document.getElementById('strength').value);
-    if (strengthPct < 100) {
-      setStatus('正在混合风格强度...', 'info');
-      finalUrl = await blendImages(originalDataUrl, finalUrl, strengthPct / 100);
-    }
-
-    if (isCancelled) return;
-    currentResultB64 = finalUrl;
-    document.getElementById('resultImg').src = finalUrl;
-    document.getElementById('resultLabel').textContent = style.name + ' · ' + strengthPct + '%';
-    document.getElementById('results').classList.add('show');
-    setStatus('生成完成！', 'success');
-    await saveHistory(originalDataUrl, currentPhotoKey, finalUrl, style.name, strengthPct);
-    resetGeneratingState();
-  } catch (e) {
-    if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
-  }
-}
 
 // ── Stable Horde ──
 async function generateWithHorde() {
@@ -985,78 +755,6 @@ async function pollStatus(jobId, styleName, strengthPct) {
   }
 }
 
-
-// ── Puter.js ──
-function loadPuterScript() {
-  return new Promise((resolve, reject) => {
-    if (window.puter) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://js.puter.com/v2/';
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('无法加载 Puter.js SDK，请检查网络连接'));
-    document.head.appendChild(s);
-  });
-}
-
-async function generateWithPuter() {
-  try {
-    setStatus('正在加载 Puter.js SDK...', 'info');
-    await loadPuterScript();
-    if (isCancelled) return;
-
-    const style = STYLES.find(s => s.id === activeStyleId) || STYLES[0];
-
-    // Step 1: Vision — describe the image
-    setStatus('AI 正在分析图片内容...', 'info');
-    let description = '';
-    try {
-      const visionResp = await puter.ai.chat(
-        [{ role: 'user', content: [
-          { type: 'image_url', image_url: { url: originalDataUrl } },
-          { type: 'text', text: 'In 2 concise sentences, describe the main subject, scene, and key visual elements of this image. Focus on what should appear in an illustration.' },
-        ]}]
-      );
-      description = typeof visionResp === 'string'
-        ? visionResp
-        : visionResp?.message?.content || visionResp?.content || '';
-    } catch (_) { /* proceed without description */ }
-
-    if (isCancelled) return;
-
-    // Step 2: txt2img with style prompt
-    setStatus('正在生成 ' + style.name + ' 风格插画...', 'info');
-    const puterPrompt = style.puterPrompt || style.prompt.substring(0, 300);
-    const fullPrompt = description
-      ? `${puterPrompt}. Scene content: ${description}`
-      : puterPrompt;
-
-    const imgResult = await puter.ai.txt2img(fullPrompt, false);
-    if (isCancelled) return;
-
-    let resultUrl;
-    if (imgResult instanceof HTMLImageElement) {
-      resultUrl = imgResult.src;
-    } else if (typeof imgResult === 'string') {
-      resultUrl = imgResult;
-    } else if (imgResult?.src) {
-      resultUrl = imgResult.src;
-    } else if (imgResult?.url) {
-      resultUrl = imgResult.url;
-    } else {
-      throw new Error('未获得图片结果，请重试');
-    }
-
-    currentResultB64 = resultUrl;
-    document.getElementById('resultImg').src = resultUrl;
-    document.getElementById('resultLabel').textContent = style.name + ' · Puter';
-    document.getElementById('results').classList.add('show');
-    setStatus('生成完成！', 'success');
-    await saveHistory(originalDataUrl, currentPhotoKey, resultUrl, style.name + ' (Puter)', 0);
-    resetGeneratingState();
-  } catch (e) {
-    if (!isCancelled) { setStatus('错误: ' + e.message, 'error'); resetGeneratingState(); }
-  }
-}
 
 // ── Copy / Download ──
 async function dataUrlToBlob(dataUrl) { return (await fetch(dataUrl)).blob(); }
@@ -1224,7 +922,7 @@ function restorePhoto(photoIdx) {
 
 // ── Initialise ──
 applySiteName(localStorage.getItem(TITLE_KEY) || '');
-selectService(activeService);
+buildStyleGrid();
 renderHistory();
 </script>
 <script>
