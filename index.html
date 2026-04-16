@@ -606,12 +606,7 @@ function updateAnalysisBadge() {
   }
   const poseLabels = { headshot: '特写人像', halfbody: '半身人像', fullbody: '全身人像', dynamic: '动态人像', group: '多人合影', unknown: '人像' };
   const pt = photoFeatures.poseType;
-  const useGFPGAN = pt === 'headshot' || pt === 'halfbody' || pt === 'unknown';
-  const useOpenPose = pt === 'dynamic' || pt === 'fullbody';
-  let html = `<span class="ab-tag">人像已识别</span><span class="ab-tag pose">${poseLabels[pt] || '人像'}</span>`;
-  if (useGFPGAN)   html += `<span class="ab-tag">✦ 人脸增强</span>`;
-  if (useOpenPose) html += `<span class="ab-tag">✦ 姿态保持</span>`;
-  badge.innerHTML = html;
+  badge.innerHTML = `<span class="ab-tag">人像已识别</span><span class="ab-tag pose">${poseLabels[pt] || '人像'}</span>`;
   badge.className = 'analysis-badge show';
 }
 
@@ -773,22 +768,11 @@ async function generateWithHorde() {
   if (isPortrait && p.denoise_cap) denoising = Math.min(denoising, p.denoise_cap);
   delete p.denoise_cap;
 
-  // ── Special processing based on portrait/pose detection ──
-  // GFPGAN: face restoration post-processor for portrait shots
-  const postProcessing = (isPortrait && (poseType === 'headshot' || poseType === 'halfbody' || poseType === 'unknown'))
-    ? ['GFPGAN'] : [];
-
-  // OpenPose ControlNet: preserve body pose for full-body / dynamic shots
-  const controlType = (poseType === 'dynamic' || poseType === 'fullbody') ? 'openpose' : null;
-
   try {
     const { base64, width, height } = await resizeForApi(originalDataUrl);
     if (isCancelled) return;
 
-    const statusParts = ['正在提交任务'];
-    if (postProcessing.length) statusParts.push('人脸增强');
-    if (controlType) statusParts.push('姿态保持');
-    setStatus(statusParts.join(' · ') + '...', 'info');
+    setStatus('正在提交任务...', 'info');
 
     const hordeParams = {
       ...p,
@@ -796,8 +780,6 @@ async function generateWithHorde() {
       seed: String(Math.floor(Math.random() * 999999)),
       height, width, n: 1,
     };
-    if (postProcessing.length) hordeParams.post_processing = postProcessing;
-    if (controlType) { hordeParams.control_type = controlType; hordeParams.image_is_control = false; }
 
     const submitCtrl = new AbortController();
     const submitTimeout = setTimeout(() => submitCtrl.abort(), 25000);
